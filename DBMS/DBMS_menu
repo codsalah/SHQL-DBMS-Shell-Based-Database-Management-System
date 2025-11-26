@@ -1,0 +1,19 @@
+#! /usr/bin/bash
+
+echo "================================================================================"
+echo "                                    DBMS Menu                                   "
+echo "================================================================================"
+
+PS3="Choose an Option: "
+
+select choice in "Create Database" "List Databases" "Connect to Database" "Drop Database" "Exit"
+	do
+		case "$REPLY" in
+	    	1) ./create_db.sh ;;
+	    	2) ./list_dbs.sh ;;
+	    	3) ./connect_db.sh ;;
+	    	4) ./drop_db.sh ;;
+	    	5) exit 0 ;;
+	    	*) echo "Invalid choice" ;;
+	    	esac
+	done
