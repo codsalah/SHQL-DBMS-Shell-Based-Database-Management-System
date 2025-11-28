@@ -1,43 +1,139 @@
 #!/usr/bin/bash
 
-while true
-do
+# Function to validate table name
+validate_name() {
+    if [[ ! $1 =~ ^[a-zA-Z][a-zA-Z0-9_]*$ ]]; then
+        echo "Invalid name. Must start with a letter and contain only alphanumeric characters and underscores."
+        return 1
+    fi
+    return 0
+}
 
-  read -p "Enter table name: " tableName < /dev/tty
+while true; do
+    read -p "Enter Table Name: " tableName < /dev/tty
+    
+    # Check if empty
+    if [[ -z "$tableName" ]]; then
+        echo "Table name cannot be empty."
+        continue
+    fi
 
-  # Trim leading spaces
-  tableName="${tableName#"${tableName%%[![:space:]]*}"}"
+    # Validate name format
+    if ! validate_name "$tableName"; then
+        continue
+    fi
 
-  # Trim trailing spaces
-  tableName="${tableName%"${tableName##*[![:space:]]}"}"
-
-  # Check empty name
-  if [[ -z "$tableName" ]]; then
-    echo "Table name can't be empty or only spaces."
-    continue
-  fi
-
-  # Check invalid characters
-  if [[ "$tableName" =~ [^a-zA-Z0-9_] ]]; then
-    echo "INVALID NAME!! Use only letters, numbers, and underscores."
-    continue
-  fi
-
-  # Check if table already exists
-  if [[ -d "./$tableName" ]]; then
-    echo "Table '$tableName' already exists."
-    continue
-  fi
-
-  # Create the database
-  if [[ "$tableName" =~ ^[a-zA-Z] ]]; then
-    touch "./$tableName"
-    touch "./$tableName.meta"
-    echo "Table '$tableName' created successfully."
-    echo "Table '$tableName' metadata created successfully."
+    # Check if table already exists
+    if [[ -f "$tableName" ]]; then
+        echo "Table '$tableName' already exists."
+        continue
+    fi
+    
     break
-  else
-    echo "INVALID NAME!! Start the table name with a letter."
-    continue
-  fi
 done
+
+while true; do
+    read -p "Enter Number of Columns: " colsNum < /dev/tty
+    if [[ ! "$colsNum" =~ ^[1-9][0-9]*$ ]]; then
+        echo "Invalid number. Please enter a positive integer."
+        continue
+    fi
+    break
+done
+
+# Initialize metadata content
+metaData=""
+# Initialize primary key flag
+pkSet=false
+
+for (( i=1; i<=colsNum; i++ ))
+do
+    echo "---------------- Column $i ----------------"
+    
+    # Get Column Name
+    while true; do
+        read -p "Enter Name of Column $i: " colName < /dev/tty
+        if [[ -z "$colName" ]]; then
+            echo "Column name cannot be empty."
+            continue
+        fi
+        if ! validate_name "$colName"; then
+            continue
+        fi
+        
+        # Check for duplicate column names in current definition
+        if [[ "$metaData" == *"$colName"* ]]; then
+            echo "Column name '$colName' already used."
+            continue
+        fi
+        # finished all test cases then break
+        break
+    done
+
+    # Get Column Type
+    while true; do
+        echo "Select Type of Column $i:"
+        PS3="Choose type (1 or 2): "
+        select type in "int" "string"
+        do
+            case $type in
+                int|string) 
+                    colType=$type
+                    break 2
+                    ;;
+                *) echo "Invalid choice. Please select 1 or 2." ;;
+            esac
+        done
+    done
+
+    # Set Primary Key
+    isPK=""
+    if [ "$pkSet" = false ]; then
+        while true; do
+            read -p "Make '$colName' the Primary Key? (y/n): " pkChoice < /dev/tty
+            case $pkChoice in
+                [Yy]*) 
+                    isPK=":PK"
+                    pkSet=true
+                    echo "Primary key set to '$colName'."
+                    break
+                    ;;
+                [Nn]*) 
+                    break 
+                    ;;
+                *) echo "Please answer yes or no." ;;
+            esac
+        done
+    fi
+
+    # Append to metadata
+    if [ $i -eq 1 ]; then
+        metaData="${colName}:${colType}${isPK}"
+    else
+        metaData="${metaData}|${colName}:${colType}${isPK}"
+    fi
+done
+
+# Create table files and write metadata
+echo "$metaData" > "$tableName.meta"
+
+# Extract column names and write as header row in table file
+# Parse metadata to get just the column names
+IFS='|' read -ra columns <<< "$metaData"
+header=""
+for col in "${columns[@]}"; do
+    IFS=':' read -ra parts <<< "$col"
+    col_name="${parts[0]}"
+    
+    if [[ -z "$header" ]]; then
+        header="$col_name"
+    else
+        header="$header|$col_name"
+    fi
+done
+
+# Write header to table file
+echo "$header" > "$tableName"
+
+echo -e "\nTable '$tableName' created successfully!"
+echo "Schema: $metaData"
