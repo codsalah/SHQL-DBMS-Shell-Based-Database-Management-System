@@ -9,6 +9,9 @@ Databases="$ProjectPath/Databases"
 # Make sure Databases folder exists
 mkdir -p "$Databases"
 
+# Capture the current directory (DBMS folder) to call scripts later
+DBMS_DIR="$PWD"
+
 while true
 do
 	# Ask for database name to drop
@@ -38,13 +41,13 @@ do
 	    select choice in "Create Table" "List Table" "Drop Table" "Insert into Table" "Delete from Table" "Update Table" "Select from Table" "Back to DBMS Menu"
 		    do
 			    case "$REPLY" in
-		    	    1) ./create_tb.sh ;;
-		    	    2) ./list_tb.sh ;;
-		    	    3) ./drop_tb.sh ;;
-		    	    4) ./insert_into_tb.sh ;;
-		    	    5) ./delete_from_tb.sh ;;
-		    	    6) ./update_tb.sh ;;
-		    	    7) ./select_from_tb.sh ;;
+		    	    1) "$DBMS_DIR/create_tb.sh" ;;
+		    	    2) "$DBMS_DIR/list_tb.sh" ;;
+		    	    3) "$DBMS_DIR/drop_tb.sh" ;;
+		    	    4) "$DBMS_DIR/insert_into_tb.sh" ;;
+		    	    5) "$DBMS_DIR/delete_from_tb.sh" ;;
+		    	    6) "$DBMS_DIR/update_tb.sh" ;;
+		    	    7) "$DBMS_DIR/select_from_tb.sh" ;;
 		    	    8) exit 0 ;;
 		    	    *) echo "Invalid choice" ;;
 		    	    esac
