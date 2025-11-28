@@ -35,7 +35,7 @@ do
 	    
 	    PS3="Choose an Option: "
 
-	    select choice in "Create Table" "List Table" "Drop Table" "Insert into Table" "Delete from Table" "Update Table" "Select from Table" "Exit"
+	    select choice in "Create Table" "List Table" "Drop Table" "Insert into Table" "Delete from Table" "Update Table" "Select from Table" "Back to DBMS Menu"
 		    do
 			    case "$REPLY" in
 		    	    1) ./create_tb.sh ;;
