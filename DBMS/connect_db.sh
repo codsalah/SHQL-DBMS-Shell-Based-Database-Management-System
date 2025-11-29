@@ -38,7 +38,7 @@ do
 	    
 	    PS3="Choose an Option: "
 
-	    select choice in "Create Table" "List Table" "Drop Table" "Insert into Table" "Delete from Table" "Update Table" "Select from Table" "Back to DBMS Menu"
+	    select choice in "Create Table" "List Table" "Drop Table" "Insert into Table" "Delete from Table" "Update Table" "Select from Table" "Truncate Table" "Sort Index Search" "Back to DBMS Menu"
 		    do
 			    case "$REPLY" in
 		    	    1) "$DBMS_DIR/create_tb.sh" ;;
@@ -48,7 +48,9 @@ do
 		    	    5) "$DBMS_DIR/delete_from_tb.sh" ;;
 		    	    6) "$DBMS_DIR/update_tb.sh" ;;
 		    	    7) "$DBMS_DIR/select_from_tb.sh" ;;
-		    	    8) exit 0 ;;
+		   			8) "$DBMS_DIR/truncate_tb.sh" ;;
+					9) "$DBMS_DIR/sort_index_search.sh" ;;
+					10) exit 0 ;;
 		    	    *) echo "Invalid choice" ;;
 		    	    esac
 		    done
