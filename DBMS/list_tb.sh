@@ -4,10 +4,9 @@
 files=$(ls -p | grep -v /)
 
 if [[ -z "$files" ]]; then
-echo "-------------------"
+    echo "-------------------"
     echo "No Existing Tables"
     echo "-------------------"
-    echo "No tables found."
 else
     read -p "Do you want to list tables with its metadata? (y/n): " list_metadata
     # Convert input to lowercase for easier comparison
@@ -31,5 +30,5 @@ else
         exit 1
     fi
 fi
-echo "-------------------"
+echo -e "-------------------\n"
 
