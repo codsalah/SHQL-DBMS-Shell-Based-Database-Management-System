@@ -28,14 +28,14 @@ fi
 
 # Ask before deletion
 read -p "Are you sure you want to truncate '$tableName'? (y/n) " confirm
-if [[ "$confirm" == "y" || "$confirm" == "Y" ]]; then
+
+confirm=$(echo "$confirm" | tr 'A-Z' 'a-z')
+
+if [[ "$confirm" == "y" || "$confirm" == "yes" ]]; then
     # Preserve the header (first line) and overwrite the file
     head -n 1 "$tableName" > "$tableName.tmp" && mv "$tableName.tmp" "$tableName"
     echo "Table '$tableName' truncated (all data removed)."
-elif [[ "$confirm" == "n" || "$confirm" == "N" ]]; then 
-    echo "Operation canceled."
-    exit 0
 else
-    echo "Invalid input. Operation canceled."
+    echo "Operation canceled."
     exit 0
 fi
