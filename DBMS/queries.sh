@@ -165,9 +165,9 @@ do
             fi
 
             # delete from <name>
-            if [[ "$sw1" == "delete" && "$sw2" == "from" ]]; then
+            if [[ "$sw1" == "drop" && "$sw2" == "from" ]]; then
                 if [[ -z "$3" ]]; then
-                    echo "Usage: delete from <tbname>"
+                    echo "Usage: drop from <tbname>"
                     continue
                 fi
                 tbname="$3"
