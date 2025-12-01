@@ -91,14 +91,15 @@ do
     if [ "$pkSet" = false ]; then
         while true; do
             read -p "Make '$colName' the Primary Key? (y/n): " pkChoice < /dev/tty
+            pkChoice=$(echo "$pkChoice" | tr 'A-Z' 'a-z')
             case $pkChoice in
-                [Yy]*) 
+                y|yes) 
                     isPK=":PK"
                     pkSet=true
                     echo "Primary key set to '$colName'."
                     break
                     ;;
-                [Nn]*) 
+                n|no) 
                     break 
                     ;;
                 *) echo "Please answer yes or no." ;;
