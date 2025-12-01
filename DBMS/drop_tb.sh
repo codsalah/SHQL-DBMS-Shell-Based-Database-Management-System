@@ -9,10 +9,14 @@ Databases="$ProjectPath/Databases"
 # Make sure Databases folder exists
 mkdir -p "$Databases"
 attempt=0
+tableName="$1"
+
 while true 
 do
-	# Ask for database name to drop
-	read -p "Enter the name of the table you want to drop (or 'exit' to return): " tableName
+	# Ask for database name to drop if not provided
+    if [[ -z "$tableName" ]]; then
+	    read -p "Enter the name of the table you want to drop (or 'exit' to return): " tableName
+    fi
 
 	# Trim leading spaces
 	tableName="${tableName#"${tableName%%[![:space:]]*}"}"
@@ -23,6 +27,7 @@ do
 	# Check table name is not empty
 	if [[ -z "$tableName" ]]; then
 	    echo -e "\nTable name cannot be empty.\n"
+        tableName=""
 	    continue
 	fi
 
@@ -35,6 +40,7 @@ do
     # If table name ends with .meta tell it not to drop it
     if [[ "$tableName" == *.meta ]]; then
         echo -e "\nTable name cannot end with .meta.\n"
+        tableName=""
         continue
     fi
 
@@ -65,6 +71,7 @@ do
 			echo -e "\nInvalid table name entered 3 times. Returning to menu.\n"
 			break
 		fi
+        tableName=""
 	    continue
 	fi
 done

@@ -1,7 +1,10 @@
 #!/usr/bin/bash
 
-# Prompt for table name
-read -p "Enter table name: " tableName < /dev/tty
+# Prompt for table name if not provided
+tableName="$1"
+if [[ -z "$tableName" ]]; then
+    read -p "Enter table name: " tableName < /dev/tty
+fi
 
 # Trim leading and trailing spaces
 tableName="${tableName#"${tableName%%[![:space:]]*}"}"

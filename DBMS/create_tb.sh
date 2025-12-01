@@ -9,23 +9,32 @@ validate_name() {
     return 0
 }
 
+# Check if argument is provided
+tableName="$1"
+
 while true; do
-    read -p "Enter Table Name: " tableName < /dev/tty
+    # If tableName is not set (not passed as arg or reset due to error), ask for it
+    if [[ -z "$tableName" ]]; then
+        read -p "Enter Table Name: " tableName < /dev/tty
+    fi
     
     # Check if empty
     if [[ -z "$tableName" ]]; then
         echo "Table name cannot be empty."
+        tableName=""
         continue
     fi
 
     # Validate name format
     if ! validate_name "$tableName"; then
+        tableName=""
         continue
     fi
 
     # Check if table already exists
     if [[ -f "$tableName" ]]; then
         echo "Table '$tableName' already exists."
+        tableName=""
         continue
     fi
     
