@@ -36,7 +36,7 @@ do
 	    echo "                                    Connected to $name                                    "
 	    echo -e "==========================================================================================\n"
 	    
-	    PS3="Choose an Option: "
+	    PS3="Choose an Option to perform on connected database: "
 
 	    select choice in "Create Table" "List Table" "Drop Table" "Insert into Table" "Delete from Table" "Update Table" "Select from Table" "Truncate Table" "Sort Index Search" "Back to DBMS Menu"
 		    do
