@@ -65,6 +65,20 @@ do
         continue
     fi
 
+    # add create_tb.sh
+    if [[ "$w1" == "create" && "$w2" == "table" ]]; then
+
+        if [[ -z "$3" ]]; then
+            echo "Usage: create table <tbname>"
+            continue
+        fi
+
+        tbname="$3"
+
+        ./create_tb.sh "$tbname"
+        continue
+    fi
+
     # unknown query
     echo "Unknown or unsupported query: $line"
     echo "Supported now: create database <name>, drop database <name>, list databases, exit, quit"
