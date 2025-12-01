@@ -80,9 +80,6 @@ for i in "${!col_names[@]}"; do
             if [[ $i -eq $pk_col_index ]]; then
                 echo "PRIMARY KEY VIOLATION: Primary key '${col_names[$i]}' cannot be NULL."
                 continue
-            else
-                echo "Value cannot be empty."
-                continue
             fi
         fi
         
