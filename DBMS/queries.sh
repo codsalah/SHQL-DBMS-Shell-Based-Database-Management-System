@@ -114,8 +114,21 @@ do
             fi
 
             # ================= TABLE COMMANDS (ONLY HERE) =================
+	    # add create_tb.sh
+    	    if [[ "$w1" == "create" && "$w2" == "table" ]]; then
 
-            s
+            if [[ -z "$3" ]]; then
+                echo "Usage: create table <tbname>"
+                continue
+            fi
+
+            tbname="$3"
+
+            ./create_tb.sh "$tbname"
+            continue
+    	    fi
+
+            
         done
 
         # done with this database session, go back to outer loop
@@ -123,20 +136,7 @@ do
     fi
 
     # ================= UNKNOWN TOP-LEVEL COMMAND =================
-    # add create_tb.sh
-    if [[ "$w1" == "create" && "$w2" == "table" ]]; then
-
-        if [[ -z "$3" ]]; then
-            echo "Usage: create table <tbname>"
-            continue
-        fi
-
-        tbname="$3"
-
-        ./create_tb.sh "$tbname"
-        continue
-    fi
-
+    
     # unknown query
     echo "Unknown or unsupported query: $line"
     echo "Top-level supported:"
