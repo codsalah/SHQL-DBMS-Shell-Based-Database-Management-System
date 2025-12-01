@@ -1,28 +1,37 @@
 #!/usr/bin/bash
 
+# Where project and Databases live
+ProjectPath="$(dirname "$PWD")"
+Databases="$ProjectPath/Databases"
+
+# Where all DBMS scripts live (this directory)
+DBMS_DIR="$PWD"
+
 while true
 do
-    # Print empty line for spacing
     echo
 
-    # Read a full command line from user
+    # Top-level prompt (no specific DB)
     read -p "DBMS> " line
 
-    # Trim spaces
+    # Trim leading spaces
     line="${line#"${line%%[![:space:]]*}"}"
+    # Trim trailing spaces
     line="${line%"${line##*[![:space:]]}"}"
 
-    # If the user just pressed Enter, skip
+    # Skip empty lines
     if [[ -z "$line" ]]; then
         continue
     fi
 
-    # Split the line
+    # Split into $1, $2, $3, ...
     set -- $line
 
-    # Lowercase copies of first two words for case-insensitive matching
-    w1="${1,,}"    # first word
-    w2="${2,,}"    # second word
+    # Lowercase for matching
+    w1="${1,,}"
+    w2="${2,,}"
+
+    # ===================== GLOBAL COMMANDS =====================
 
     # exit / quit
     if [[ "$w1" == "exit" || "$w1" == "quit" ]]; then
@@ -32,42 +41,95 @@ do
 
     # create database <name>
     if [[ "$w1" == "create" && "$w2" == "database" ]]; then
-
         if [[ -z "$3" ]]; then
             echo "Usage: create database <dbname>"
             continue
         fi
-
         dbname="$3"
-
-        ./create_db.sh "$dbname"   # create_db.sh handles messages
+        ./create_db.sh "$dbname"
         continue
     fi
 
     # drop database <name>
     if [[ "$w1" == "drop" && "$w2" == "database" ]]; then
-
         if [[ -z "$3" ]]; then
             echo "Usage: drop database <dbname>"
             continue
         fi
-
         dbname="$3"
-
-        ./drop_db.sh "$dbname"    # drop_db.sh handles confirm + messages
+        ./drop_db.sh "$dbname"
         continue
     fi
 
     # list databases
     if [[ "$w1" == "list" && "$w2" == "databases" ]]; then
-        # Just call the list_dbs script (no args needed)
-        ./list_dbs.sh              # or ./list_db.sh if that's your actual file name
+        ./list_dbs.sh
         continue
     fi
 
-    # unknown query
+    # ===================== use <database> =====================
+
+    if [[ "$w1" == "use" ]]; then
+        if [[ -z "$2" ]]; then
+            echo "Usage: use <dbname>"
+            continue
+        fi
+
+        dbname="$2"
+
+        # Check database exists
+        if [[ ! -d "$Databases/$dbname" ]]; then
+            echo "Database '$dbname' does not exist."
+            continue
+        fi
+
+        echo "You are now connected to '$dbname'."
+        db_path="$Databases/$dbname"
+
+        # --------- INNER LOOP: commands INSIDE this database ---------
+        while true
+        do
+            echo
+            read -p "DBMS[$dbname]> " subline
+
+            # Trim spaces
+            subline="${subline#"${subline%%[![:space:]]*}"}"
+            subline="${subline%"${subline##*[![:space:]]}"}"
+
+            # Skip empty lines
+            if [[ -z "$subline" ]]; then
+                continue
+            fi
+
+            # Split into $1, $2, $3, ...
+            set -- $subline
+
+            sw1="${1,,}"
+            sw2="${2,,}"
+
+            # ---- leave this database session ----
+            if [[ "$sw1" == "back" || "$sw1" == "exit" || "$sw1" == "quit" ]]; then
+                echo "Leaving database '$dbname'."
+                break
+            fi
+
+            # ================= TABLE COMMANDS (ONLY HERE) =================
+
+            s
+        done
+
+        # done with this database session, go back to outer loop
+        continue
+    fi
+
+    # ================= UNKNOWN TOP-LEVEL COMMAND =================
     echo "Unknown or unsupported query: $line"
-    echo "Supported now: create database <name>, drop database <name>, list databases, exit, quit"
+    echo "Top-level supported:"
+    echo "  create database <name>"
+    echo "  drop database <name>"
+    echo "  list databases"
+    echo "  use <name>"
+    echo "  exit | quit"
 
 done
 
