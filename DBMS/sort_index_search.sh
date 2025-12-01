@@ -1,18 +1,27 @@
 #!/usr/bin/bash
 
-tableName=$1
-searchTarget=$2
+read -p "Enter table name: " tableName  
+# Trim spaces
+tableName="${tableName#"${tableName%%[![:space:]]*}"}"
+tableName="${tableName%"${tableName##*[![:space:]]}"}"
 
 # if no arguments provided, prompt user
 if [ -z "$tableName" ]; then
-    read -p "Enter table name: " tableName
-    read -p "Enter value to search (optional, press Enter to skip): " searchTarget
+    echo "Table name cannot be empty."
+    exit 1
 fi
+
+
+# Check if empty
+tableName=$(echo "$tableName" | tr -d '[:space:]')
+
 
 # Check if table exists
 if [[ ! -f "$tableName" || ! -f "$tableName.meta" ]]; then
     echo "Table or Metadata for '$tableName' does not exist."
     exit 1
+else 
+    read -p "Enter value to search (optional, press Enter to skip): " searchTarget
 fi
 
 
@@ -82,15 +91,12 @@ if [ -n "$searchTarget" ]; then
     
     # Function to perform binary search
     binary_search() {
-        local target=$1
-        local file=$2
+        local target=$searchTarget
+        local file=$tableName
         
-        # Get total number of data rows
-        # We use the file we just sorted ($tableName)
-        # Total lines in file
+        # Count lines in file
         local totalLines=$(wc -l < "$file")
-        # Subtract 1 for header
-        local numRows=$((totalLines - 1))
+        local numRows=$((totalLines - 1))   # minus header
         
         local low=0
         local high=$((numRows - 1))
@@ -101,28 +107,36 @@ if [ -n "$searchTarget" ]; then
         
         while [ $low -le $high ]; do
             mid=$(( (low + high) / 2 ))
+            lineNum=$((mid + 2))   # header is line 1
             
-            # Calculate actual line number in file (Header is line 1, so row 0 is line 2)
-            lineNum=$((mid + 2))
-            
-            # Read the specific line
+            # Read line
             row=$(sed -n "${lineNum}p" "$file")
-            
-            # Extract the PK value from the row
             midVal=$(echo "$row" | cut -d '|' -f "$pkIndex")
             
+            # Found exact match
             if [ "$midVal" == "$target" ]; then
                 echo "$row"
                 return 0
             fi
             
+            # --- INT PK LOGIC ---
             if [ "$pkType" == "int" ]; then
+                # Target must be an integer
+                if ! [[ "$target" =~ ^[0-9]+$ ]]; then
+                    echo "Search target must be an integer."
+                    return 1
+                fi
+                
+                # Numeric compare
                 if [ "$midVal" -lt "$target" ]; then
                     low=$((mid + 1))
                 else
                     high=$((mid - 1))
                 fi
+            
+            # --- STRING PK LOGIC ---
             else
+                # Lexicographic comparison
                 if [[ "$midVal" < "$target" ]]; then
                     low=$((mid + 1))
                 else
