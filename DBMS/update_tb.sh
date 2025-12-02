@@ -2,10 +2,14 @@
 
 # Ask for table name
 
+table="$1"
+
 while true
 do
-    # Ask user for table name
-    read -p "Enter table name: " table
+    # Ask user for table name if not provided
+    if [[ -z "$table" ]]; then
+        read -p "Enter table name: " table
+    fi
 
     # Trim leading spaces
     table="${table#"${table%%[![:space:]]*}"}"
@@ -15,6 +19,7 @@ do
     # Check empty
     if [[ -z "$table" ]]; then
         echo "Table name cannot be empty."
+        table=""
         continue
     fi
 
@@ -25,12 +30,14 @@ do
     # Check data file exists
     if [[ ! -f "$data_file" ]]; then
         echo "Table '$table' does not exist in this database."
+        table=""
         continue
     fi
 
     # Check metadata file exists
     if [[ ! -f "$meta_file" ]]; then
         echo "Metadata file '$meta_file' not found for table '$table'."
+        table=""
         continue
     fi
 
@@ -132,30 +139,46 @@ for ((i=0; i<${#header_cols[@]}; i++)); do
     echo "  $((i+1))) ${header_cols[$i]}"
 done
 
-read -p "Enter column name to update: " col_name
+attempt=0
+while true; do
+    read -p "Enter column name to update: " col_name
 
-# Trim spaces
-col_name="${col_name#"${col_name%%[![:space:]]*}"}"
-col_name="${col_name%"${col_name##*[![:space:]]}"}"
+    # Trim spaces
+    col_name="${col_name#"${col_name%%[![:space:]]*}"}"
+    col_name="${col_name%"${col_name##*[![:space:]]}"}"
 
-if [[ -z "$col_name" ]]; then
-    echo "Column name cannot be empty."
-    exit 0
-fi
-
-# Find column index from column name
-col_index=-1
-for ((i=0; i<${#header_cols[@]}; i++)); do
-    if [[ "${header_cols[$i]}" == "$col_name" ]]; then
-        col_index=$((i+1))    # 1-based
-        break
+    if [[ -z "$col_name" ]]; then
+        echo "Column name cannot be empty."
+        ((attempt++))
+        if [[ $attempt -ge 3 ]]; then
+            echo "Invalid input entered 3 times. Exiting."
+            exit 1
+        fi
+        continue
     fi
-done
 
-if [[ $col_index -eq -1 ]]; then
-    echo "Column '$col_name' not found in table '$table'."
-    exit 0
-fi
+    # Find column index from column name
+    col_index=-1
+    for ((i=0; i<${#header_cols[@]}; i++)); do
+        if [[ "${header_cols[$i]}" == "$col_name" ]]; then
+            col_index=$((i+1))    # 1-based
+            break
+        fi
+    done
+
+    if [[ $col_index -eq -1 ]]; then
+        echo "Column '$col_name' not found in table '$table'."
+        ((attempt++))
+        if [[ $attempt -ge 3 ]]; then
+            echo "Invalid column name entered 3 times. Exiting."
+            exit 1
+        fi
+        continue
+    fi
+    
+    # If found, break the loop
+    break
+done
 
 col_idx0=$((col_index - 1))
 

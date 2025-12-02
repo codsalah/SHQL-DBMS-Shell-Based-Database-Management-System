@@ -8,7 +8,11 @@ if [[ -z "$files" ]]; then
     echo "No Existing Tables"
     echo "-------------------"
 else
-    read -p "Do you want to list tables with its metadata? (y/n): " list_metadata
+    # Check if argument is provided
+    list_metadata="$1"
+    if [[ -z "$list_metadata" ]]; then
+        read -p "Do you want to list tables with its metadata? (y/n): " list_metadata
+    fi
     # Convert input to lowercase for easier comparison
     input=$(echo "$list_metadata" | tr '[:upper:]' '[:lower:]')
     # only accept yes or y as input 

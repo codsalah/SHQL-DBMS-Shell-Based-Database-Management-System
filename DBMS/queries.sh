@@ -114,19 +114,42 @@ do
             fi
 
             # ================= TABLE COMMANDS (ONLY HERE) =================
-	    # add create_tb.sh
-    	    if [[ "$w1" == "create" && "$w2" == "table" ]]; then
-
-            if [[ -z "$3" ]]; then
-                echo "Usage: create table <tbname>"
+            
+            # create table <name>
+            if [[ "$sw1" == "create" && "$sw2" == "table" ]]; then
+                if [[ -z "$3" ]]; then
+                    echo "Usage: create table <tbname>"
+                    continue
+                fi
+                tbname="$3"
+                # Switch to DB directory so table files are created there
+                cd "$db_path"
+                "$DBMS_DIR/create_tb.sh" "$tbname"
+                # Switch back to DBMS directory
+                cd "$DBMS_DIR"
                 continue
             fi
 
-            tbname="$3"
+            # list tables
+            if [[ "$sw1" == "list" && "$sw2" == "tables" ]]; then
+                cd "$db_path"
+                "$DBMS_DIR/list_tb.sh"
+                cd "$DBMS_DIR"
+                continue
+            fi
 
-            ./create_tb.sh "$tbname"
-            continue
-    	    fi
+            # drop table <name>
+            if [[ "$sw1" == "drop" && "$sw2" == "table" ]]; then
+                if [[ -z "$3" ]]; then
+                    echo "Usage: drop table <tbname>"
+                    continue
+                fi
+                tbname="$3"
+                cd "$db_path"
+                "$DBMS_DIR/drop_tb.sh" "$tbname"
+                cd "$DBMS_DIR"
+                continue
+            fi
 
             # add truncate table
 	    if [[ "$sw1" == "truncate" && "$sw2" == "table" ]]; then
@@ -205,6 +228,17 @@ do
                 continue
             fi
 
+            # Unknown command inside DB context
+            echo "Unknown command: $subline"
+            echo "Supported commands inside '$dbname':"
+            echo "  create table <name>"
+            echo "  list tables"
+            echo "  drop table <name>"
+            echo "  insert into <name>"
+            echo "  delete from <name>"
+            echo "  update table <name>"
+            echo "  select from <name>"
+            echo "  back | exit"
         done
 
         # done with this database session, go back to outer loop

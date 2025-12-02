@@ -306,16 +306,31 @@ select_string_condition() {
 
 # Main Execution
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    tableName="$1"
     while true; do
-        read -p "Enter table name: " tableName
+        if [[ -z "$tableName" ]]; then
+            read -p "Enter table name: " tableName
+        fi
         # Trim leading and trailing spaces
         tableName="${tableName#"${tableName%%[![:space:]]*}"}"
         tableName="${tableName%"${tableName##*[![:space:]]}"}"
 
         # Check if empty name, table does not exist, or metadata does not exist
-        [[ -z "$tableName" ]] && echo "Table name cannot be empty." && continue
-        [[ ! -f "$tableName" ]] && echo "Table $tableName does not exist." && continue
-        [[ ! -f "$tableName.meta" ]] && echo "Metadata for $tableName does not exist." && continue
+        if [[ -z "$tableName" ]]; then
+            echo "Table name cannot be empty."
+            tableName=""
+            continue
+        fi
+        if [[ ! -f "$tableName" ]]; then
+            echo "Table $tableName does not exist."
+            tableName=""
+            continue
+        fi
+        if [[ ! -f "$tableName.meta" ]]; then
+            echo "Metadata for $tableName does not exist."
+            tableName=""
+            continue
+        fi
         
         break
     done
