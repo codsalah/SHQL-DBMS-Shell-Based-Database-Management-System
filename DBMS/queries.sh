@@ -301,18 +301,19 @@ do
             # ===================== SQL-Like Queries =====================
 
             # select all from <table name> where <pk column name> = <value>
-            if [[ "$sw1" == "select" && "$sw2" == "all" && "${3,,}" == "from" && "${5,,}" == "where" ]]; then
-                if [[ -z "$6" || -z "$8" ]]; then
-                    echo "Usage: select all from <table_name> where <column_name> = <value>"
-                    continue
-                fi
-                tbl="$4"
-                column_name="$6"
-                value="$8"
-                # In this case, call select function (needs to be defined based on your requirements)
-                select_by_pk "$db_path/$tbl" "$column_name" "$value"
-                continue
-            fi
+	    if [[ "$sw1" == "select" && "$sw2" == "all" && "${3,,}" == "from" && "${5,,}" == "where" ]]; then
+	        if [[ -z "$6" || -z "$8" ]]; then
+		    echo "Usage: select all from <table_name> where <column_name> = <value>"
+		    continue
+	        fi
+	        tbl="$4"
+	        column_name="$6"  # column name (primary key column)
+	        value="$8"  # value for the primary key
+
+	        # Call select_by_pk with the value directly passed in
+	        select_by_pk "$db_path/$tbl" "$value"
+	        continue
+	    fi
 
             # select <column name>,<column name> from <table name>
 	    if [[ "$sw1" == "select" && "$sw2" != "all" && "${3,,}" == "from" ]]; then
@@ -354,6 +355,7 @@ do
             echo "  insert into <table> values (...)"
             echo "  delete from <table> where <col> <op> <val>"
             echo "  update <table> set <col>=<val> where <col> <op> <val>"
+            echo "  select <columns> from <table> where <column> <op> <val>"
             echo "  back | exit"
         done
 
