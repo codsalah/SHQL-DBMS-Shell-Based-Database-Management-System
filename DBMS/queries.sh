@@ -7,6 +7,9 @@ Databases="$ProjectPath/Databases"
 # Where all DBMS scripts live (this directory)
 DBMS_DIR="$PWD"
 
+# Source the select_from_tb.sh script so we can use its functions
+source "$DBMS_DIR/select_from_tb.sh"
+
 while true
 do
     echo
@@ -114,7 +117,7 @@ do
             fi
 
             # ================= TABLE COMMANDS (ONLY HERE) =================
-            
+
             # create table <name>
             if [[ "$sw1" == "create" && "$sw2" == "table" ]]; then
                 if [[ -z "$3" ]]; then
@@ -151,24 +154,21 @@ do
                 continue
             fi
 
-            # add truncate table
-	    if [[ "$sw1" == "truncate" && "$sw2" == "table" ]]; then
-    	    (
-            	cd "$db_path" || exit 1
+            # truncate table <name>
+            if [[ "$sw1" == "truncate" && "$sw2" == "table" ]]; then
+                (
+                    cd "$db_path" || exit 1
+                    if [[ -n "$3" ]]; then
+                        tableName="$3"
+                        "$DBMS_DIR/truncate_tb.sh" "$tableName"
+                    else
+                        "$DBMS_DIR/truncate_tb.sh"
+                    fi
+                )
+                continue
+            fi
 
-        	    # If user typed: truncate table mytable
-        	    if [[ -n "$3" ]]; then
-            	    tableName="$3"
-            	    "$DBMS_DIR/truncate_tb.sh" "$tableName"
-            	    else
-            	    # No table name given -> let truncate_tb.sh ask for it
-            	    "$DBMS_DIR/truncate_tb.sh"
-        	    fi
-    	    )
-    	    continue
-	    fi
-
-            # add insert into table
+            # insert into table
             if [[ "$sw1" == "insert" && "$sw2" == "into" ]]; then
                 if [[ -z "$3" ]]; then
                     echo "Usage: INSERT INTO <table> VALUES (...)" 
@@ -176,31 +176,23 @@ do
                 fi
 
                 tbl="$3"
-
-                # Rebuild the rest of the line starting from $4
                 rest="${*:4}"
-                # Trim spaces
                 rest="${rest#"${rest%%[![:space:]]*}"}"
 
-                # First word should be VALUES (any case)
                 first_word="${rest%%[[:space:]]*}"
                 if [[ "${first_word,,}" != "values" ]]; then
                     echo "Syntax error: expected VALUES keyword after table name."
                     continue
                 fi
 
-                # Remove the VALUES keyword
                 values_part="${rest#"$first_word"}"
-                # Trim spaces
                 values_part="${values_part#"${values_part%%[![:space:]]*}"}"
 
-                # Expect parentheses around values
                 if [[ ${values_part:0:1} != "(" || ${values_part: -1} != ")" ]]; then
                     echo "Syntax error: expected parentheses around values."
                     continue
                 fi
 
-                # Strip surrounding parentheses
                 inner="${values_part:1:${#values_part}-2}"   # inside (...)
 
                 # Split by comma into raw values
@@ -208,19 +200,14 @@ do
 
                 cleaned_values=()
                 for v in "${raw_values[@]}"; do
-                    # Trim spaces
                     v="${v#"${v%%[![:space:]]*}"}"
                     v="${v%"${v##*[![:space:]]}"}"
-
-                    # Remove surrounding single quotes if present
                     if [[ ${#v} -ge 2 && ${v:0:1} == "'" && ${v: -1} == "'" ]]; then
                         v="${v:1:${#v}-2}"
                     fi
-
                     cleaned_values+=("$v")
                 done
 
-                # Call insert_into_tb.sh with table and values
                 (
                     cd "$db_path" || exit 1
                     "$DBMS_DIR/insert_into_tb.sh" "$tbl" "${cleaned_values[@]}"
@@ -228,7 +215,53 @@ do
                 continue
             fi
 
-            # Unknown command inside DB context
+            # ===================== SQL-Like Queries =====================
+
+            # select all from <table name> where <pk column name> = <value>
+            if [[ "$sw1" == "select" && "$sw2" == "all" && "${3,,}" == "from" && "${5,,}" == "where" ]]; then
+                if [[ -z "$6" || -z "$8" ]]; then
+                    echo "Usage: select all from <table_name> where <column_name> = <value>"
+                    continue
+                fi
+                tbl="$4"
+                column_name="$6"
+                value="$8"
+                # In this case, call select function (needs to be defined based on your requirements)
+                select_by_pk "$db_path/$tbl" "$column_name" "$value"
+                continue
+            fi
+
+            # select <column name>,<column name> from <table name>
+	    if [[ "$sw1" == "select" && "$sw2" != "all" && "${3,,}" == "from" ]]; then
+    	    	if [[ -z "$4" ]]; then
+        	    echo "Usage: select <column_names> from <table_name>"
+        	    continue
+    		fi
+    
+    	        tbl="$4"  # Table name is the 4th argument
+    	        columns="$2"  # Column names (comma-separated) are the first argument
+    
+    	        # Remove commas and prepare for the column selection
+    	        column_names="${columns//,/ }"
+    
+    	        # Call select_specific_columns with the full table path and column names
+    	        select_specific_columns "$db_path/$tbl" "$column_names"
+    	        continue
+	    fi
+
+
+            # select all from <table name>
+            if [[ "$sw1" == "select" && "$sw2" == "all" && "${3,,}" == "from" ]]; then
+                if [[ -z "$4" ]]; then
+                    echo "Usage: select all from <table_name>"
+                    continue
+                fi
+                tbl="$4"
+                select_all "$db_path/$tbl"
+                continue
+            fi
+
+            # ================= UNKNOWN COMMAND =================
             echo "Unknown command: $subline"
             echo "Supported commands inside '$dbname':"
             echo "  create table <name>"
@@ -246,8 +279,6 @@ do
     fi
 
     # ================= UNKNOWN TOP-LEVEL COMMAND =================
-    
-    # unknown query
     echo "Unknown or unsupported query: $line"
     echo "Top-level supported:"
     echo "  create database <name>"
