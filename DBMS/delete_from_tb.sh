@@ -2,10 +2,13 @@
 
 # Validate and ask for table name
 
+table="$1"
+
 while true
 do
-    
-    read -p "Enter table name: " table
+    if [[ -z "$table" ]]; then
+        read -p "Enter table name: " table
+    fi
 
     # Trim leading spaces
     table="${table#"${table%%[![:space:]]*}"}"
@@ -15,6 +18,7 @@ do
     # Check empty
     if [[ -z "$table" ]]; then
         echo "Table name cannot be empty."
+        table=""
         continue
     fi
 
@@ -24,11 +28,13 @@ do
     # Check both data and meta files exist
     if [[ ! -f "$data_file" ]]; then
         echo "Table '$table' does not exist."
+        table=""
         continue
     fi
 
     if [[ ! -f "$meta_file" ]]; then
         echo "Metadata file '$meta_file' not found for table '$table'."
+        table=""
         continue
     fi
 
