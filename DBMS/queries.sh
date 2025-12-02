@@ -102,7 +102,9 @@ do
             fi
 
             # Split into $1, $2, $3, ...
+            set -f
             set -- $subline
+            set +f
 
             sw1="${1,,}"
             sw2="${2,,}"
@@ -182,15 +184,13 @@ do
                 # Trim spaces
                 rest="${rest#"${rest%%[![:space:]]*}"}"
 
-                # First word should be VALUES (any case)
-                first_word="${rest%%[[:space:]]*}"
-                if [[ "${first_word,,}" != "values" ]]; then
+                # Check if it starts with VALUES (case insensitive) and extract the rest
+                if [[ "$rest" =~ ^[vV][aA][lL][uU][eE][sS](.*)$ ]]; then
+                    values_part="${BASH_REMATCH[1]}"
+                else
                     echo "Syntax error: expected VALUES keyword after table name."
                     continue
                 fi
-
-                # Remove the VALUES keyword
-                values_part="${rest#"$first_word"}"
                 # Trim spaces
                 values_part="${values_part#"${values_part%%[![:space:]]*}"}"
 
