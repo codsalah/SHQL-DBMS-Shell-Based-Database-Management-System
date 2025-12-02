@@ -105,7 +105,9 @@ do
             fi
 
             # Split into $1, $2, $3, ...
+            set -f
             set -- $subline
+            set +f
 
             sw1="${1,,}"
             sw2="${2,,}"
@@ -179,13 +181,16 @@ do
                 rest="${*:4}"
                 rest="${rest#"${rest%%[![:space:]]*}"}"
 
+                # First word should be VALUES (any case)
                 first_word="${rest%%[[:space:]]*}"
                 if [[ "${first_word,,}" != "values" ]]; then
                     echo "Syntax error: expected VALUES keyword after table name."
                     continue
                 fi
 
+                # Remove the VALUES keyword
                 values_part="${rest#"$first_word"}"
+                # Trim spaces
                 values_part="${values_part#"${values_part%%[![:space:]]*}"}"
 
                 if [[ ${values_part:0:1} != "(" || ${values_part: -1} != ")" ]]; then
@@ -211,6 +216,84 @@ do
                 (
                     cd "$db_path" || exit 1
                     "$DBMS_DIR/insert_into_tb.sh" "$tbl" "${cleaned_values[@]}"
+                )
+                continue
+            fi
+
+            # ================= DELETE FROM <table> WHERE <condition> =================
+            if [[ "$sw1" == "delete" && "$sw2" == "from" ]]; then
+                if [[ -z "$3" ]]; then
+                    echo "Usage: DELETE FROM <table> WHERE <column> <operator> <value>"
+                    continue
+                fi
+
+                tbl="$3"
+                
+                # Check if table exists
+                if [[ ! -f "$db_path/$tbl" ]]; then
+                    echo "Table '$tbl' does not exist."
+                    continue
+                fi
+
+                # Rebuild the rest: should be "WHERE column operator value"
+                rest="${*:4}"
+                rest="${rest#"${rest%%[![:space:]]*}"}"
+
+                # Check if WHERE clause exists
+                first_word="${rest%%[[:space:]]*}"
+                if [[ "${first_word,,}" != "where" ]]; then
+                    echo "Syntax error: expected WHERE clause."
+                    echo "Usage: DELETE FROM <table> WHERE <column> <operator> <value>"
+                    continue
+                fi
+
+                # Parse: WHERE column operator value
+                read -ra where_parts <<< "$rest"
+                
+                if [[ ${#where_parts[@]} -lt 4 ]]; then
+                    echo "Syntax error: WHERE clause must be: WHERE <column> <operator> <value>"
+                    continue
+                fi
+
+                # Call delete_from_tb.sh with SQL-like syntax
+                (
+                    cd "$db_path" || exit 1
+                    "$DBMS_DIR/delete_from_tb.sh" "$tbl" "${where_parts[@]}"
+                )
+                continue
+            fi
+
+            # ================= UPDATE <table> SET <assignments> WHERE <condition> =================
+            if [[ "$sw1" == "update" ]]; then
+                if [[ -z "$2" ]]; then
+                    echo "Usage: UPDATE <table> SET <col1>=<val1>,<col2>=<val2> WHERE <column> <operator> <value>"
+                    continue
+                fi
+
+                tbl="$2"
+                
+                # Check if table exists
+                if [[ ! -f "$db_path/$tbl" ]]; then
+                    echo "Table '$tbl' does not exist."
+                    continue
+                fi
+
+                # Rebuild rest: should be "SET ... WHERE ..."
+                rest="${*:3}"
+                rest="${rest#"${rest%%[![:space:]]*}"}"
+
+                # Check for SET keyword
+                first_word="${rest%%[[:space:]]*}"
+                if [[ "${first_word,,}" != "set" ]]; then
+                    echo "Syntax error: expected SET keyword."
+                    echo "Usage: UPDATE <table> SET <col1>=<val1>,... WHERE <column> <operator> <value>"
+                    continue
+                fi
+
+                # Call update_tb.sh with SQL-like syntax: table SET assignments WHERE condition
+                (
+                    cd "$db_path" || exit 1
+                    "$DBMS_DIR/update_tb.sh" "$tbl" "${*:3}"
                 )
                 continue
             fi
@@ -267,10 +350,10 @@ do
             echo "  create table <name>"
             echo "  list tables"
             echo "  drop table <name>"
-            echo "  insert into <name>"
-            echo "  delete from <name>"
-            echo "  update table <name>"
-            echo "  select from <name>"
+            echo "  truncate table <name>"
+            echo "  insert into <table> values (...)"
+            echo "  delete from <table> where <col> <op> <val>"
+            echo "  update <table> set <col>=<val> where <col> <op> <val>"
             echo "  back | exit"
         done
 
