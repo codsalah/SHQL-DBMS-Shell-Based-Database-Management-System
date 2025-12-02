@@ -128,7 +128,83 @@ do
             continue
     	    fi
 
-            
+            # add truncate table
+	    if [[ "$sw1" == "truncate" && "$sw2" == "table" ]]; then
+    	    (
+            	cd "$db_path" || exit 1
+
+        	    # If user typed: truncate table mytable
+        	    if [[ -n "$3" ]]; then
+            	    tableName="$3"
+            	    "$DBMS_DIR/truncate_tb.sh" "$tableName"
+            	    else
+            	    # No table name given -> let truncate_tb.sh ask for it
+            	    "$DBMS_DIR/truncate_tb.sh"
+        	    fi
+    	    )
+    	    continue
+	    fi
+
+            # add insert into table
+            if [[ "$sw1" == "insert" && "$sw2" == "into" ]]; then
+                if [[ -z "$3" ]]; then
+                    echo "Usage: INSERT INTO <table> VALUES (...)" 
+                    continue
+                fi
+
+                tbl="$3"
+
+                # Rebuild the rest of the line starting from $4
+                rest="${*:4}"
+                # Trim spaces
+                rest="${rest#"${rest%%[![:space:]]*}"}"
+
+                # First word should be VALUES (any case)
+                first_word="${rest%%[[:space:]]*}"
+                if [[ "${first_word,,}" != "values" ]]; then
+                    echo "Syntax error: expected VALUES keyword after table name."
+                    continue
+                fi
+
+                # Remove the VALUES keyword
+                values_part="${rest#"$first_word"}"
+                # Trim spaces
+                values_part="${values_part#"${values_part%%[![:space:]]*}"}"
+
+                # Expect parentheses around values
+                if [[ ${values_part:0:1} != "(" || ${values_part: -1} != ")" ]]; then
+                    echo "Syntax error: expected parentheses around values."
+                    continue
+                fi
+
+                # Strip surrounding parentheses
+                inner="${values_part:1:${#values_part}-2}"   # inside (...)
+
+                # Split by comma into raw values
+                IFS=',' read -ra raw_values <<< "$inner"
+
+                cleaned_values=()
+                for v in "${raw_values[@]}"; do
+                    # Trim spaces
+                    v="${v#"${v%%[![:space:]]*}"}"
+                    v="${v%"${v##*[![:space:]]}"}"
+
+                    # Remove surrounding single quotes if present
+                    if [[ ${#v} -ge 2 && ${v:0:1} == "'" && ${v: -1} == "'" ]]; then
+                        v="${v:1:${#v}-2}"
+                    fi
+
+                    cleaned_values+=("$v")
+                done
+
+                # Call insert_into_tb.sh with table and values
+                (
+                    cd "$db_path" || exit 1
+                    "$DBMS_DIR/insert_into_tb.sh" "$tbl" "${cleaned_values[@]}"
+                )
+                continue
+            fi
+
         done
 
         # done with this database session, go back to outer loop
