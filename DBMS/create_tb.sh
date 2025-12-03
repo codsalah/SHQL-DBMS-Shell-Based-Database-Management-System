@@ -1,12 +1,36 @@
 #!/usr/bin/bash
 
+# Source YAD utility functions
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/yad_utilities.sh"
+
 # Function to validate table name
 validate_name() {
     if [[ ! $1 =~ ^[a-zA-Z][a-zA-Z0-9_]*$ ]]; then
-        echo "Invalid name. Must start with a letter and contain only alphanumeric characters and underscores."
         return 1
     fi
     return 0
+}
+
+# Function to show error message based on mode
+show_error() {
+    local message="$1"
+    if [ "$DBMS_MODE" = "gui" ]; then
+        show_error_dialog "$message"
+    else
+        echo "$message"
+    fi
+}
+
+# Function to show success message based on mode
+show_success() {
+    local message="$1"
+    if [ "$DBMS_MODE" = "gui" ]; then
+        show_info_dialog "Success" "$message"
+    else
+        echo -e "\n$message"
+    fi
 }
 
 # Check if argument is provided
@@ -15,25 +39,37 @@ tableName="$1"
 while true; do
     # If tableName is not set (not passed as arg or reset due to error), ask for it
     if [[ -z "$tableName" ]]; then
-        read -p "Enter Table Name: " tableName < /dev/tty
+        if [ "$DBMS_MODE" = "gui" ]; then
+            tableName=$(show_entry_dialog "Create Table" "Enter Table Name:" "")
+            if [ $? -ne 0 ]; then
+                exit 1
+            fi
+        else
+            read -p "Enter Table Name: " tableName < /dev/tty
+        fi
     fi
+    
+    # Trim spaces
+    tableName="${tableName#"${tableName%%[![:space:]]*}"}"
+    tableName="${tableName%"${tableName##*[![:space:]]}"}"
     
     # Check if empty
     if [[ -z "$tableName" ]]; then
-        echo "Table name cannot be empty."
+        show_error "Table name cannot be empty."
         tableName=""
         continue
     fi
 
     # Validate name format
     if ! validate_name "$tableName"; then
+        show_error "Invalid name. Must start with a letter and contain only alphanumeric characters and underscores."
         tableName=""
         continue
     fi
 
     # Check if table already exists
     if [[ -f "$tableName" ]]; then
-        echo "Table '$tableName' already exists."
+        show_error "Table '$tableName' already exists."
         tableName=""
         continue
     fi
@@ -48,7 +84,6 @@ if [[ -n "$2" ]]; then
         # Syntax: create_tb.sh <tableName> columns (col1:type1:pk,col2:type2)
         
         # Reconstruct the columns definition from arguments
-        # Arguments might be split by spaces, so we join them back
         shift 2
         args="$*"
         
@@ -58,8 +93,7 @@ if [[ -n "$2" ]]; then
         
         # Check for parentheses
         if [[ "${args:0:1}" != "(" || "${args: -1}" != ")" ]]; then
-            echo "Error: Columns definition must be enclosed in parentheses."
-            echo "Usage: create table <tableName> columns (col1:type:pk,col2:type)"
+            show_error "Error: Columns definition must be enclosed in parentheses.\nUsage: create table <tableName> columns (col1:type:pk,col2:type)"
             exit 1
         fi
         
@@ -86,12 +120,13 @@ if [[ -n "$2" ]]; then
             
             # Validate name
             if ! validate_name "$col_name"; then
+                show_error "Invalid column name '$col_name'."
                 exit 1
             fi
             
             # Validate type
             if [[ "$col_type" != "int" && "$col_type" != "string" ]]; then
-                echo "Error: Invalid type '$col_type' for column '$col_name'. Supported types: int, string."
+                show_error "Invalid type '$col_type' for column '$col_name'. Supported types: int, string."
                 exit 1
             fi
             
@@ -117,23 +152,29 @@ if [[ -n "$2" ]]; then
         echo "$metaData" > "$tableName.meta"
         echo "$header" > "$tableName"
         
-        echo -e "\nTable '$tableName' created successfully!"
-        echo "Schema: $metaData"
+        show_success "Table '$tableName' created successfully!\nSchema: $metaData"
         exit 0
     else
         # Arguments provided but not 'columns'
-        echo "Error: Invalid syntax."
-        echo "Usage: create table <tableName> [columns (col1:type:pk, ...)]"
+        show_error "Invalid syntax.\nUsage: create table <tableName> [columns (col1:type:pk, ...)]"
         exit 1
     fi
 fi
 
-# Interactive Mode (Fallback)
+# Interactive Mode (GUI or CLI)
 
 while true; do
-    read -p "Enter Number of Columns: " colsNum
+    if [ "$DBMS_MODE" = "gui" ]; then
+        colsNum=$(show_entry_dialog "Create Table" "Enter Number of Columns:" "")
+        if [ $? -ne 0 ]; then
+            exit 1
+        fi
+    else
+        read -p "Enter Number of Columns: " colsNum
+    fi
+    
     if [[ ! "$colsNum" =~ ^[1-9][0-9]*$ ]]; then
-        echo "Invalid number. Please enter a positive integer."
+        show_error "Invalid number. Please enter a positive integer."
         continue
     fi
     break
@@ -146,63 +187,98 @@ pkSet=false
 
 for (( i=1; i<=colsNum; i++ ))
 do
-    echo "---------------- Column $i ----------------"
+    if [ "$DBMS_MODE" != "gui" ]; then
+        echo "---------------- Column $i ----------------"
+    fi
     
     # Get Column Name
     while true; do
-        read -p "Enter Name of Column $i: " colName
+        if [ "$DBMS_MODE" = "gui" ]; then
+            colName=$(show_entry_dialog "Column $i" "Enter Name of Column $i:" "")
+            if [ $? -ne 0 ]; then
+                exit 1
+            fi
+        else
+            read -p "Enter Name of Column $i: " colName
+        fi
+        
+        # Trim spaces
+        colName="${colName#"${colName%%[![:space:]]*}"}"
+        colName="${colName%"${colName##*[![:space:]]}"}"
+        
         if [[ -z "$colName" ]]; then
-            echo "Column name cannot be empty."
+            show_error "Column name cannot be empty."
             continue
         fi
         if ! validate_name "$colName"; then
+            show_error "Invalid column name. Must start with a letter and contain only alphanumeric characters and underscores."
             continue
         fi
         
         # Check for duplicate column names in current definition
         if [[ "$metaData" == *"$colName"* ]]; then
-            echo "Column name '$colName' already used."
+            show_error "Column name '$colName' already used."
             continue
         fi
-        # finished all test cases then break
         break
     done
 
     # Get Column Type
-    while true; do
-        echo "Select Type of Column $i:"
-        PS3="Choose type (1 or 2): "
-        select type in "int" "string"
-        do
-            case $type in
-                int|string) 
-                    colType=$type
-                    break 2
-                    ;;
-                *) echo "Invalid choice. Please select 1 or 2." ;;
-            esac
+    if [ "$DBMS_MODE" = "gui" ]; then
+        # Use show_options for type selection
+        type_options=(
+            "dialog-information" "int" "Integer type"
+            "dialog-information" "string" "String type"
+        )
+        colType=$(show_options "Column Type" "Select Type for Column '$colName':" "${type_options[@]}")
+        if [ $? -ne 0 ]; then
+            exit 1
+        fi
+        # Remove any extra whitespace/newlines
+        colType=$(echo "$colType" | tr -d '\n' | xargs)
+    else
+        while true; do
+            echo "Select Type of Column $i:"
+            PS3="Choose type (1 or 2): "
+            select type in "int" "string"
+            do
+                case $type in
+                    int|string) 
+                        colType=$type
+                        break 2
+                        ;;
+                    *) echo "Invalid choice. Please select 1 or 2." ;;
+                esac
+            done
         done
-    done
+    fi
 
     # Set Primary Key
     isPK=""
     if [ "$pkSet" = false ]; then
-        while true; do
-            read -p "Make '$colName' the Primary Key? (y/n): " pkChoice
-            pkChoice=$(echo "$pkChoice" | tr 'A-Z' 'a-z')
-            case $pkChoice in
-                y|yes) 
-                    isPK=":PK"
-                    pkSet=true
-                    echo "Primary key set to '$colName'."
-                    break
-                    ;;
-                n|no) 
-                    break 
-                    ;;
-                *) echo "Please answer yes or no." ;;
-            esac
-        done
+        if [ "$DBMS_MODE" = "gui" ]; then
+            if show_question_dialog "Make '$colName' the Primary Key?"; then
+                isPK=":PK"
+                pkSet=true
+            fi
+        else
+            while true; do
+                read -p "Make '$colName' the Primary Key? (y/n): " pkChoice
+                pkChoice=$(echo "$pkChoice" | tr 'A-Z' 'a-z')
+                case $pkChoice in
+                    y|yes) 
+                        isPK=":PK"
+                        pkSet=true
+                        echo "Primary key set to '$colName'."
+                        break
+                        ;;
+                    n|no) 
+                        break 
+                        ;;
+                    *) echo "Please answer yes or no." ;;
+                esac
+            done
+        fi
     fi
 
     # Append to metadata
@@ -217,7 +293,6 @@ done
 echo "$metaData" > "$tableName.meta"
 
 # Extract column names and write as header row in table file
-# Parse metadata to get just the column names
 IFS='|' read -ra columns <<< "$metaData"
 header=""
 for col in "${columns[@]}"; do
@@ -234,5 +309,4 @@ done
 # Write header to table file
 echo "$header" > "$tableName"
 
-echo -e "\nTable '$tableName' created successfully!"
-echo "Schema: $metaData"
+show_success "Table '$tableName' created successfully!\nSchema: $metaData"
