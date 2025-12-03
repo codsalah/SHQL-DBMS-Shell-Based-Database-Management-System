@@ -126,16 +126,17 @@ do
 
             # ================= TABLE COMMANDS (ONLY HERE) =================
 
-            # create table <name>
+            # create table <name> [columns (...)]
             if [[ "$sw1" == "create" && "$sw2" == "table" ]]; then
                 if [[ -z "$3" ]]; then
-                    echo "Usage: create table <tbname>"
+                    echo "Usage: create table <tbname> [columns (col1:type:pk, ...)]"
                     continue
                 fi
                 tbname="$3"
                 # Switch to DB directory so table files are created there
                 cd "$db_path"
-                "$DBMS_DIR/create_tb.sh" "$tbname"
+                # Pass all arguments starting from 3rd (table name) onwards
+                "$DBMS_DIR/create_tb.sh" "$tbname" "${@:4}"
                 # Switch back to DBMS directory
                 cd "$DBMS_DIR"
                 continue
@@ -219,6 +220,9 @@ do
                     cleaned_values+=("$v")
                 done
 
+                # DEBUG
+                echo "DEBUG: Inserting into $tbl values: ${cleaned_values[*]}"
+                
                 (
                     cd "$db_path" || exit 1
                     "$DBMS_DIR/insert_into_tb.sh" "$tbl" "${cleaned_values[@]}"
