@@ -13,21 +13,21 @@ show_main_dialog() {
     local css_file="/tmp/yad_main.css"
     cat > "$css_file" << 'EOF'
 * { 
-    background-color: #fffaf0; 
+    background-color: #ffffff; 
     color: #1f2937; 
     font-family: "Segoe UI", "Ubuntu", "Helvetica Neue", sans-serif; 
     font-size: 13pt; 
 }
 
 window, dialog, decoration { 
-    background-color: #fffaf0; 
+    background-color: #ffffff; 
     border-radius: 18px; 
     padding: 20px; 
     box-shadow: 0 12px 40px rgba(0,0,0,0.15); 
 }
 
 label, text, textview { 
-    background-color: #fffaf0; 
+    background-color: #ffffff; 
     color: #1f2937; 
     font-size: 14pt;
     line-height: 1.6em;
@@ -122,10 +122,10 @@ show_options() {
 
     local css_file="/tmp/yad_options.css"
     cat > "$css_file" << 'EOF'
-* { background-color: #fef9f0; color: #1f2937; font-family: "Segoe UI", sans-serif; }
-window, dialog { background-color: #fef9f0; border-radius: 12px; }
-treeview { background-color: #fff; color: #1f2937; border-radius: 10px; font-size: 11pt; padding: 4px; }
-treeview header { background-color: #fef9f0; color: #d97706; font-weight: bold; }
+* { background-color: #ffffff; color: #1f2937; font-family: "Segoe UI", sans-serif; }
+window, dialog { background-color: #ffffff; border-radius: 12px; }
+treeview { background-color: #f5f5f5; color: #1f2937; border-radius: 10px; font-size: 11pt; padding: 4px; }
+treeview header { background-color: #ffffff; color: #d97706; font-weight: bold; }
 button { background-image: linear-gradient(to bottom, #f59e0b, #d97706); color: white; border-radius: 10px; padding: 10px 24px; font-weight: bold; border: none; box-shadow: 0 4px 18px rgba(245,158,11,0.35); transition: all 0.2s ease; }
 button:hover { background-image: linear-gradient(to bottom, #fcd34d, #fbbf24); box-shadow: 0 6px 22px rgba(245,158,11,0.45); }
 button label { color: white; }
@@ -155,11 +155,11 @@ show_results() {
 
     local css_file="/tmp/yad_results.css"
     cat > "$css_file" << 'EOF'
-* { background-color: #f0fdf4; color: #065f46; font-family: "Segoe UI", sans-serif; font-size: 11pt; }
-window, dialog { background-color: #f0fdf4; border-radius: 12px; padding: 10px; box-shadow: 0 6px 20px rgba(0,0,0,0.1); }
-textview, label, text { background-color: #f0fdf4; color: #065f46; text-align: center; justify-content: center; }
-button { background-image: linear-gradient(to bottom, #34d399, #10b981); color: white; border-radius: 12px; padding: 10px 24px; font-weight: bold; border: none; box-shadow: 0 4px 18px rgba(16,185,129,0.35); transition: all 0.2s ease; }
-button:hover { background-image: linear-gradient(to bottom, #6ee7b7, #34d399); box-shadow: 0 6px 22px rgba(16,185,129,0.45); }
+* { background-color: #ffffff; color: #065f46; font-family: "Segoe UI", sans-serif; font-size: 11pt; }
+window, dialog { background-color: #ffffff; border-radius: 12px; padding: 10px; box-shadow: 0 6px 20px rgba(0,0,0,0.1); }
+textview, label, text { background-color: #ffffff; color: #065f46; text-align: center; justify-content: center; }
+button { background-image: linear-gradient(to bottom, #404040, #1a1a1a); color: white; border-radius: 12px; padding: 10px 24px; font-weight: bold; border: none; box-shadow: 0 4px 18px rgba(0,0,0,0.35); transition: all 0.2s ease; }
+button:hover { background-image: linear-gradient(to bottom, #595959, #404040); box-shadow: 0 6px 22px rgba(0,0,0,0.45); }
 button label { color: white; }
 EOF
 
@@ -176,22 +176,22 @@ show_goodbye_dialog() {
     local css_file="/tmp/dbms_goodbye_style.css"
 
     cat > "$css_file" << 'EOF'
-* { background-color: #f0fdf4; color: #065f46; font-family: "Segoe UI", sans-serif; }
-window, dialog { background-color: #f0fdf4; border-radius: 12px; }
+* { background-color: #ffffff; color: #065f46; font-family: "Segoe UI", sans-serif; }
+window, dialog { background-color: #ffffff; border-radius: 12px; }
 label, text { text-align: center; justify-content: center; }
 button {
-    background-image: linear-gradient(to bottom, #34d399, #10b981);
+    background-image: linear-gradient(to bottom, #404040, #1a1a1a);
     color: white;
     border-radius: 10px;
     padding: 10px 24px;
     font-weight: bold;
     border: none;
-    box-shadow: 0 4px 18px rgba(16, 185, 129, 0.35);
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
     transition: all 0.2s ease;
 }
 button:hover {
-    background-image: linear-gradient(to bottom, #6ee7b7, #34d399);
-    box-shadow: 0 6px 22px rgba(16, 185, 129, 0.45);
+    background-image: linear-gradient(to bottom, #595959, #404040);
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.45);
 }
 button label { color: white; }
 EOF
@@ -225,11 +225,11 @@ show_error_dialog() {
     
     local css_file="/tmp/yad_error.css"
     cat > "$css_file" << 'EOF'
-* { background-color: #fef2f2; color: #991b1b; font-family: "Segoe UI", sans-serif; }
-window, dialog { background-color: #fef2f2; border-radius: 12px; }
+* { background-color: #ffffff; color: #991b1b; font-family: "Segoe UI", sans-serif; }
+window, dialog { background-color: #ffffff; border-radius: 12px; }
 label, text { text-align: center; justify-content: center; }
-button { background-image: linear-gradient(to bottom, #ef4444, #dc2626); color: white; border-radius: 10px; padding: 10px 24px; font-weight: bold; border: none; }
-button:hover { background-image: linear-gradient(to bottom, #f87171, #ef4444); }
+button { background-image: linear-gradient(to bottom, #404040, #1a1a1a); color: white; border-radius: 10px; padding: 10px 24px; font-weight: bold; border: none; }
+button:hover { background-image: linear-gradient(to bottom, #595959, #404040); }
 button label { color: white; }
 EOF
 
@@ -253,11 +253,11 @@ show_info_dialog() {
     
     local css_file="/tmp/yad_info.css"
     cat > "$css_file" << 'EOF'
-* { background-color: #eff6ff; color: #1e40af; font-family: "Segoe UI", sans-serif; }
-window, dialog { background-color: #eff6ff; border-radius: 12px; }
+* { background-color: #ffffff; color: #1e40af; font-family: "Segoe UI", sans-serif; }
+window, dialog { background-color: #ffffff; border-radius: 12px; }
 label, text { text-align: center; justify-content: center; }
-button { background-image: linear-gradient(to bottom, #3b82f6, #2563eb); color: white; border-radius: 10px; padding: 10px 24px; font-weight: bold; border: none; }
-button:hover { background-image: linear-gradient(to bottom, #60a5fa, #3b82f6); }
+button { background-image: linear-gradient(to bottom, #404040, #1a1a1a); color: white; border-radius: 10px; padding: 10px 24px; font-weight: bold; border: none; }
+button:hover { background-image: linear-gradient(to bottom, #595959, #404040); }
 button label { color: white; }
 EOF
 
@@ -279,11 +279,11 @@ show_question_dialog() {
     
     local css_file="/tmp/yad_question.css"
     cat > "$css_file" << 'EOF'
-* { background-color: #fef3c7; color: #92400e; font-family: "Segoe UI", sans-serif; }
-window, dialog { background-color: #fef3c7; border-radius: 12px; }
+* { background-color: #ffffff; color: #92400e; font-family: "Segoe UI", sans-serif; }
+window, dialog { background-color: #ffffff; border-radius: 12px; }
 label, text { text-align: center; justify-content: center; }
-button { background-image: linear-gradient(to bottom, #fbbf24, #f59e0b); color: white; border-radius: 10px; padding: 10px 24px; font-weight: bold; border: none; }
-button:hover { background-image: linear-gradient(to bottom, #fcd34d, #fbbf24); }
+button { background-image: linear-gradient(to bottom, #404040, #1a1a1a); color: white; border-radius: 10px; padding: 10px 24px; font-weight: bold; border: none; }
+button:hover { background-image: linear-gradient(to bottom, #595959, #404040); }
 button label { color: white; }
 EOF
 
@@ -311,12 +311,12 @@ show_entry_dialog() {
     
     local css_file="/tmp/yad_entry.css"
     cat > "$css_file" << 'EOF'
-* { background-color: #fef9f0; color: #1f2937; font-family: "Segoe UI", sans-serif; }
-window, dialog { background-color: #fef9f0; border-radius: 12px; }
+* { background-color: #ffffff; color: #1f2937; font-family: "Segoe UI", sans-serif; }
+window, dialog { background-color: #ffffff; border-radius: 12px; }
 label, text { text-align: center; justify-content: center; }
-entry { background-color: #fff; color: #1f2937; border-radius: 8px; padding: 8px; }
-button { background-image: linear-gradient(to bottom, #fbbf24, #f59e0b); color: white; border-radius: 10px; padding: 10px 24px; font-weight: bold; border: none; }
-button:hover { background-image: linear-gradient(to bottom, #fcd34d, #fbbf24); }
+entry { background-color: #f5f5f5; color: #1f2937; border-radius: 8px; padding: 8px; }
+button { background-image: linear-gradient(to bottom, #404040, #1a1a1a); color: white; border-radius: 10px; padding: 10px 24px; font-weight: bold; border: none; }
+button:hover { background-image: linear-gradient(to bottom, #595959, #404040); }
 button label { color: white; }
 EOF
 
