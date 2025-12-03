@@ -15,7 +15,10 @@ do
     echo
 
     # Top-level prompt (no specific DB)
-    read -p "DBMS> " line
+    if ! read -p "DBMS> " line; then
+        echo
+        break
+    fi
 
     # Trim leading spaces
     line="${line#"${line%%[![:space:]]*}"}"
@@ -93,7 +96,10 @@ do
         while true
         do
             echo
-            read -p "DBMS[$dbname]> " subline
+            if ! read -p "DBMS[$dbname]> " subline; then
+                echo
+                break 2
+            fi
 
             # Trim spaces
             subline="${subline#"${subline%%[![:space:]]*}"}"
@@ -278,22 +284,11 @@ do
                     continue
                 fi
 
-                # Rebuild rest: should be "SET ... WHERE ..."
-                rest="${*:3}"
-                rest="${rest#"${rest%%[![:space:]]*}"}"
-
-                # Check for SET keyword
-                first_word="${rest%%[[:space:]]*}"
-                if [[ "${first_word,,}" != "set" ]]; then
-                    echo "Syntax error: expected SET keyword."
-                    echo "Usage: UPDATE <table> SET <col1>=<val1>,... WHERE <column> <operator> <value>"
-                    continue
-                fi
-
                 # Call update_tb.sh with SQL-like syntax: table SET assignments WHERE condition
+                # We pass all arguments starting from the 3rd one (after UPDATE table)
                 (
                     cd "$db_path" || exit 1
-                    "$DBMS_DIR/update_tb.sh" "$tbl" "${*:3}"
+                    "$DBMS_DIR/update_tb.sh" "$tbl" "${@:3}"
                 )
                 continue
             fi
