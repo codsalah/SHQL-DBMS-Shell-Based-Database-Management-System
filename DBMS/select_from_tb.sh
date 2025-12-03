@@ -1,5 +1,11 @@
 #!/usr/bin/bash
 
+# Source YAD utilities if in GUI mode
+if [ "$DBMS_MODE" = "gui" ]; then
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    source "$SCRIPT_DIR/yad_utilities.sh"
+fi
+
 # Function to get column index
 get_col_index() {
     local table=$1
@@ -20,7 +26,7 @@ get_col_index() {
 # Function to print table (with or without column command)
 print_table() {
     if command -v column &> /dev/null; then
-        column -t -s '|'  # Use column for formatting, aligning the columns
+        column -t -s '|'
     else
         cat
     fi
@@ -34,40 +40,49 @@ select_all() {
         return
     fi
     
-    # Extract table name from the full path
     table_name=$(basename "$table")
     
-    echo -e "\n--- Table: $table_name ---"
-    print_table < "$table"
+    if [ "$DBMS_MODE" = "gui" ]; then
+        # Read table data
+        local table_data=$(cat "$table" | print_table)
+        show_results "Table: $table_name" "$table_data" 800 500
+    else
+        echo -e "\n--- Table: $table_name ---"
+        print_table < "$table"
+    fi
 }
 
 # Select specific columns from the table
 select_specific_columns() {
     local table=$1
-    local columns=$2  # Column names passed from the query
+    local columns=$2
     
     if [[ ! -f "$table" ]]; then
         echo "Table '$table' not found."
         return
     fi
     
-    # Extract table name from the full path
     table_name=$(basename "$table")
 
-    # Print the table name, not the full path
-    echo -e "\n--- Table: $table_name ---"
-
-    # Read the header line from the table (the first row)
     header_line=$(head -n 1 "$table")
 
-    # Convert column names into an array (separated by spaces)
     IFS=' ' read -r -a cols_array <<< "$columns"
 
     local indices=""
     for col in "${cols_array[@]}"; do
+        # Trim whitespace from column name
+        col=$(echo "$col" | xargs)
+        if [[ -z "$col" ]]; then
+            continue
+        fi
+        
         idx=$(get_col_index "$table" "$col")
         if [[ $idx -eq -1 ]]; then
-            echo "Column '$col' not found."
+            if [ "$DBMS_MODE" = "gui" ]; then
+                show_error_dialog "Column '$col' not found."
+            else
+                echo "Column '$col' not found."
+            fi
             return
         fi
         if [[ -z "$indices" ]]; then
@@ -77,8 +92,13 @@ select_specific_columns() {
         fi
     done
 
-    # Extract the selected columns using 'cut' and format with 'column' to align
-    cut -d '|' -f "$indices" "$table" | print_table
+    if [ "$DBMS_MODE" = "gui" ]; then
+        local result=$(cut -d '|' -f "$indices" "$table" | print_table)
+        show_results "Table: $table_name (Selected Columns)" "$result" 800 500
+    else
+        echo -e "\n--- Table: $table_name ---"
+        cut -d '|' -f "$indices" "$table" | print_table
+    fi
 }
 
 # Select by primary key
@@ -89,14 +109,25 @@ select_by_pk() {
         return
     fi
 
-    read -p "Enter PK value: " searchTarget
-    if [[ -z "$searchTarget" ]]; then
-        echo "No search target provided."
-        return
+    if [ "$DBMS_MODE" = "gui" ]; then
+        searchTarget=$(show_entry_dialog "Select by PK" "Enter PK value:" "")
+        if [ $? -ne 0 ] || [ -z "$searchTarget" ]; then
+            return
+        fi
+    else
+        read -p "Enter PK value: " searchTarget
+        if [[ -z "$searchTarget" ]]; then
+            echo "No search target provided."
+            return
+        fi
     fi
 
     if [[ ! -f "$table.meta" ]]; then
-        echo "Metadata not found."
+        if [ "$DBMS_MODE" = "gui" ]; then
+            show_error_dialog "Metadata not found."
+        else
+            echo "Metadata not found."
+        fi
         return
     fi
 
@@ -118,11 +149,14 @@ select_by_pk() {
     done
 
     if [ $pkIndex -eq 0 ]; then
-        echo "Error: No Primary Key found."
+        if [ "$DBMS_MODE" = "gui" ]; then
+            show_error_dialog "No Primary Key found."
+        else
+            echo "Error: No Primary Key found."
+        fi
         return
     fi
 
-    # Binary Search for PK (adjusted)
     local result=""
     while read -r line; do
         pkValue=$(echo "$line" | cut -d '|' -f "$pkIndex")
@@ -133,9 +167,18 @@ select_by_pk() {
     done < "$table"
 
     if [[ -n "$result" ]]; then
-        (head -n 1 "$table"; echo "$result") | print_table
+        if [ "$DBMS_MODE" = "gui" ]; then
+            local output=$((head -n 1 "$table"; echo "$result") | print_table)
+            show_results "Found Row" "$output" 700 300
+        else
+            (head -n 1 "$table"; echo "$result") | print_table
+        fi
     else
-        echo "Not Found"
+        if [ "$DBMS_MODE" = "gui" ]; then
+            show_info_dialog "Not Found" "No row found with PK value '$searchTarget'"
+        else
+            echo "Not Found"
+        fi
     fi
 }
 
@@ -147,36 +190,55 @@ select_numerical_condition() {
         return
     fi
 
-    read -p "Enter column name: " col
-    local col_idx=$(get_col_index "$table" "$col")
-
-    if [[ $col_idx -eq -1 ]]; then
-        echo "Column '$col' not found."
-        return
-    fi
-
-    read -p "Enter operator (==, !=, >, <, >=, <=): " op
-    read -p "Enter value: " val
-
-    # Check column type from metadata
-    metadata=$(cat "$table.meta")
-    IFS='|' read -ra columns <<< "$metadata"
-    col_type=""
-    for col in "${columns[@]}"; do
-        IFS=':' read -ra parts <<< "$col"
-        if [[ "${parts[0]}" == "$col" ]]; then
-            col_type="${parts[1]}"
-            break
+    if [ "$DBMS_MODE" = "gui" ]; then
+        col=$(show_entry_dialog "Numerical Condition" "Enter column name:" "")
+        if [ $? -ne 0 ] || [ -z "$col" ]; then
+            return
         fi
-    done
+        
+        local col_idx=$(get_col_index "$table" "$col")
+        if [[ $col_idx -eq -1 ]]; then
+            show_error_dialog "Column '$col' not found."
+            return
+        fi
+        
+        op=$(show_entry_dialog "Operator" "Enter operator (==, !=, >, <, >=, <=):" "==")
+        if [ $? -ne 0 ] || [ -z "$op" ]; then
+            return
+        fi
+        
+        val=$(show_entry_dialog "Value" "Enter value:" "")
+        if [ $? -ne 0 ] || [ -z "$val" ]; then
+            return
+        fi
+    else
+        read -p "Enter column name: " col
+        local col_idx=$(get_col_index "$table" "$col")
 
-    # Validate operator
+        if [[ $col_idx -eq -1 ]]; then
+            echo "Column '$col' not found."
+            return
+        fi
+
+        read -p "Enter operator (==, !=, >, <, >=, <=): " op
+        read -p "Enter value: " val
+    fi
+
     if [[ ! "$op" =~ ^(==|!=|>|<|>=|<=)$ ]]; then
-        echo "Invalid operator: $op"
+        if [ "$DBMS_MODE" = "gui" ]; then
+            show_error_dialog "Invalid operator: $op"
+        else
+            echo "Invalid operator: $op"
+        fi
         return
     fi
 
-    (head -n 1 "$table"; awk -F'|' -v c="$col_idx" -v v="$val" "NR > 1 && \$c $op v" "$table") | print_table
+    if [ "$DBMS_MODE" = "gui" ]; then
+        local output=$((head -n 1 "$table"; awk -F'|' -v c="$col_idx" -v v="$val" "NR > 1 && \$c $op v" "$table") | print_table)
+        show_results "Query Results" "$output" 800 500
+    else
+        (head -n 1 "$table"; awk -F'|' -v c="$col_idx" -v v="$val" "NR > 1 && \$c $op v" "$table") | print_table
+    fi
 }
 
 # Function to handle string conditions
@@ -187,87 +249,207 @@ select_string_condition() {
         return
     fi
 
-    read -p "Enter column name: " col
-    local col_idx=$(get_col_index "$table" "$col")
+    if [ "$DBMS_MODE" = "gui" ]; then
+        col=$(show_entry_dialog "String Condition" "Enter column name:" "")
+        if [ $? -ne 0 ] || [ -z "$col" ]; then
+            return
+        fi
+        
+        local col_idx=$(get_col_index "$table" "$col")
+        if [[ $col_idx -eq -1 ]]; then
+            show_error_dialog "Column '$col' not found."
+            return
+        fi
+        
+        like_pattern=$(show_entry_dialog "LIKE Pattern" "Enter LIKE pattern (use % for wildcard):" "")
+        if [ $? -ne 0 ] || [ -z "$like_pattern" ]; then
+            return
+        fi
+    else
+        read -p "Enter column name: " col
+        local col_idx=$(get_col_index "$table" "$col")
 
-    if [[ $col_idx -eq -1 ]]; then
-        echo "Column '$col' not found."
-        return
+        if [[ $col_idx -eq -1 ]]; then
+            echo "Column '$col' not found."
+            return
+        fi
+
+        read -p "Enter LIKE pattern: " like_pattern
     fi
 
-    read -p "Enter LIKE pattern: " like_pattern
-
-    # Check column type from metadata
-    metadata=$(cat "$table.meta")
-    IFS='|' read -ra columns <<< "$metadata"
-    col_type=""
-    for col in "${columns[@]}"; do
-        IFS=':' read -ra parts <<< "$col"
-        if [[ "${parts[0]}" == "$col" ]]; then
-            col_type="${parts[1]}"
-            break
-        fi
-    done
-
-    # Convert LIKE pattern to regex
     local regex_pattern="${like_pattern//%/.*}"
     regex_pattern="${regex_pattern//_/.}"
     regex_pattern="^$regex_pattern$"
 
-    (head -n 1 "$table"; awk -F'|' -v c="$col_idx" -v p="$regex_pattern" 'NR > 1 {val = $c; gsub(/^ +| +$/, "", val); if (val ~ p) print $0}' "$table") | print_table
+    if [ "$DBMS_MODE" = "gui" ]; then
+        local output=$((head -n 1 "$table"; awk -F'|' -v c="$col_idx" -v p="$regex_pattern" 'NR > 1 {val = $c; gsub(/^ +| +$/, "", val); if (val ~ p) print $0}' "$table") | print_table)
+        show_results "Query Results" "$output" 800 500
+    else
+        (head -n 1 "$table"; awk -F'|' -v c="$col_idx" -v p="$regex_pattern" 'NR > 1 {val = $c; gsub(/^ +| +$/, "", val); if (val ~ p) print $0}' "$table") | print_table
+    fi
 }
 
 # Main Execution
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     tableName="$1"
-    while true; do
+    
+    if [ "$DBMS_MODE" = "gui" ]; then
+        # GUI Mode
         if [[ -z "$tableName" ]]; then
-            read -p "Enter table name: " tableName
-        fi
-        # Trim leading and trailing spaces
-        tableName="${tableName#"${tableName%%[![:space:]]*}"}"
-        tableName="${tableName%"${tableName##*[![:space:]]}"}"
-
-        # Check if empty name, table does not exist, or metadata does not exist
-        if [[ -z "$tableName" ]]; then
-            echo "Table name cannot be empty."
-            tableName=""
-            continue
-        fi
-        if [[ ! -f "$tableName" ]]; then
-            echo "Table $tableName does not exist."
-            tableName=""
-            continue
-        fi
-        if [[ ! -f "$tableName.meta" ]]; then
-            echo "Metadata for $tableName does not exist."
-            tableName=""
-            continue
+            # Get list of tables
+            table_files=(*.meta)
+            if [ ${#table_files[@]} -eq 0 ] || [ "${table_files[0]}" = "*.meta" ]; then
+                show_error_dialog "No tables found in this database."
+                exit 1
+            fi
+            
+            table_options=()
+            for meta_file in "${table_files[@]}"; do
+                tbl_name="${meta_file%.meta}"
+                if [[ -f "$tbl_name" ]]; then
+                    table_options+=("FALSE" "$tbl_name")
+                fi
+            done
+            
+            result=$(yad --list --radiolist \
+                --title="Select Table" \
+                --text="Choose a table to query:" \
+                --column="Select" --column="Table Name" \
+                --width=400 --height=400 --center \
+                --button="Cancel:1" --button="OK:0" \
+                --print-column=2 \
+                "${table_options[@]}")
+            
+            if [ $? -ne 0 ] || [ -z "$result" ]; then
+                exit 0
+            fi
+            
+            tableName=$(echo "$result" | tr -d '|' | xargs)
         fi
         
-        break
-    done
+        # Validate table
+        if [[ ! -f "$tableName" ]]; then
+            show_error_dialog "Table $tableName does not exist."
+            exit 1
+        fi
+        if [[ ! -f "$tableName.meta" ]]; then
+            show_error_dialog "Metadata for $tableName does not exist."
+            exit 1
+        fi
+        
+        # Show select operations menu
+        while true; do
+            select_options=(
+                "view-list" "Select All" "View all rows"
+                "view-sort-ascending" "Select Specific Columns" "Choose columns to display"
+                "edit-find" "Select by PK" "Find row by primary key"
+                "preferences-system" "Numerical Condition" "Filter by number comparison"
+                "edit-find-replace" "String Condition" "Filter by text pattern (LIKE)"
+            )
+            
+            choice=$(show_options "Select from Table: $tableName" "Choose a query operation:" "${select_options[@]}")
+            
+            if [ $? -ne 0 ] || [ -z "$choice" ]; then
+                break
+            fi
+            
+            case "$choice" in
+                "Select All")
+                    select_all "$tableName"
+                    ;;
+                "Select Specific Columns")
+                    header_line=$(head -n 1 "$tableName")
+                    IFS='|' read -r -a headers <<< "$header_line"
+                    
+                    # Build checklist arguments for yad
+                    col_args=()
+                    for col in "${headers[@]}"; do
+                        col_args+=("FALSE" "$col")
+                    done
+                    
+                    # Show checklist dialog to select multiple columns
+                    selected=$(yad --list --checklist \
+                        --title="Select Columns" \
+                        --text="Choose one or more columns to display:" \
+                        --column="Select:CHK" --column="Column Name:TEXT" \
+                        --width=500 --height=400 --center \
+                        --button="Cancel:1" --button="OK:0" \
+                        --print-column=2 \
+                        --separator=" " \
+                        "${col_args[@]}")
+                    
+                    if [ $? -eq 0 ] && [ -n "$selected" ]; then
+                        # Trim and process the selected columns
+                        columns=$(echo "$selected" | xargs)
+                        if [ -n "$columns" ]; then
+                            select_specific_columns "$tableName" "$columns"
+                        else
+                            show_error_dialog "No columns selected."
+                        fi
+                    fi
+                    ;;
+                "Select by PK")
+                    select_by_pk "$tableName"
+                    ;;
+                "Numerical Condition")
+                    select_numerical_condition "$tableName"
+                    ;;
+                "String Condition")
+                    select_string_condition "$tableName"
+                    ;;
+            esac
+        done
+        
+    else
+        # CLI Mode
+        while true; do
+            if [[ -z "$tableName" ]]; then
+                read -p "Enter table name: " tableName
+            fi
+            
+            tableName="${tableName#"${tableName%%[![:space:]]*}"}"
+            tableName="${tableName%"${tableName##*[![:space:]]}"}"
 
-    PS3="Choose operation to select from table: "
-    select choice in \
-        "Select All" \
-        "Select Specific Columns" \
-        "Select Specific Row (PK)" \
-        "Select Specific Row (Non-PK)" \
-        "Select With Numerical Condition" \
-        "Select With String Condition" \
-        "Back"
-    do
-        case "$REPLY" in
-            1) select_all "$tableName" ;;
-            2) select_specific_columns "$tableName" ;;
-            3) select_by_pk "$tableName" ;;
-            4) select_normal_row "$tableName" ;;
-            5) select_numerical_condition "$tableName" ;;
-            6) select_string_condition "$tableName" ;;
-            7) break ;;
-            *) echo "Invalid choice" ;;
-        esac
-    done
+            if [[ -z "$tableName" ]]; then
+                echo "Table name cannot be empty."
+                tableName=""
+                continue
+            fi
+            if [[ ! -f "$tableName" ]]; then
+                echo "Table $tableName does not exist."
+                tableName=""
+                continue
+            fi
+            if [[ ! -f "$tableName.meta" ]]; then
+                echo "Metadata for $tableName does not exist."
+                tableName=""
+                continue
+            fi
+            
+            break
+        done
+
+        PS3="Choose operation to select from table: "
+        select choice in \
+            "Select All" \
+            "Select Specific Columns" \
+            "Select Specific Row (PK)" \
+            "Select With Numerical Condition" \
+            "Select With String Condition" \
+            "Back"
+        do
+            case "$REPLY" in
+                1) select_all "$tableName" ;;
+                2) 
+                    read -p "Enter column names (space-separated): " columns
+                    select_specific_columns "$tableName" "$columns"
+                    ;;
+                3) select_by_pk "$tableName" ;;
+                4) select_numerical_condition "$tableName" ;;
+                5) select_string_condition "$tableName" ;;
+                6) break ;;
+                *) echo "Invalid choice" ;;
+            esac
+        done
+    fi
 fi
-
