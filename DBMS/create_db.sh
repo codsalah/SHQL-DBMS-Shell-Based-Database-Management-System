@@ -9,6 +9,9 @@ Databases="$ProjectPath/Databases"
 # Make sure Databases folder exists
 mkdir -p "$Databases"
 
+# Source YAD utility functions
+source "./yad_utilities.sh"
+
 create_db_with_name() {
     local name="$1"
 
@@ -19,31 +22,51 @@ create_db_with_name() {
 
     # Check if empty name
     if [[ -z "$name" ]]; then
-        echo -e "\nDatabase name cannot be empty.\n"
+        if [ "$DBMS_MODE" = "gui" ]; then
+            show_error_dialog "Database name cannot be empty."
+        else
+            echo -e "\nDatabase name cannot be empty.\n"
+        fi
         return 1
     fi
 
     # Check invalid characters
     if [[ "$name" =~ [^a-zA-Z0-9_] ]]; then
-        echo -e "\nINVALID NAME!! Use only letters, numbers, and underscores.\n"
+        if [ "$DBMS_MODE" = "gui" ]; then
+            show_error_dialog "INVALID NAME!! Use only letters, numbers, and underscores."
+        else
+            echo -e "\nINVALID NAME!! Use only letters, numbers, and underscores.\n"
+        fi
         return 1
     fi
 
     # Check starts with letter
     if [[ ! "$name" =~ ^[a-zA-Z] ]]; then
-        echo -e "\nINVALID NAME!! Start the database name with a letter.\n"
+        if [ "$DBMS_MODE" = "gui" ]; then
+            show_error_dialog "INVALID NAME!! Start the database name with a letter."
+        else
+            echo -e "\nINVALID NAME!! Start the database name with a letter.\n"
+        fi
         return 1
     fi
 
     # Check if directory exists inside Databases
     if [[ -d "$Databases/$name" ]]; then
-        echo -e "\nDatabase '$name' already exists.\n"
+        if [ "$DBMS_MODE" = "gui" ]; then
+            show_error_dialog "Database '$name' already exists."
+        else
+            echo -e "\nDatabase '$name' already exists.\n"
+        fi
         return 1
     fi
 
     # Create the database
     mkdir "$Databases/$name"
-    echo -e "\nDatabase '$name' created successfully.\n"
+    if [ "$DBMS_MODE" = "gui" ]; then
+        show_info_dialog "Success" "Database '$name' created successfully."
+    else
+        echo -e "\nDatabase '$name' created successfully.\n"
+    fi
     return 0
 }
 
@@ -56,7 +79,13 @@ fi
 # interactive mode (from menu)
 while true
 do
-    read -p "Enter database name: " name
+    if [ "$DBMS_MODE" = "gui" ]; then
+        name=$(show_entry_dialog "Create Database" "Enter database name:" "")
+        if [ $? -ne 0 ]; then break; fi
+    else
+        read -p "Enter database name: " name
+    fi
+
     if create_db_with_name "$name"; then
         break
     fi
