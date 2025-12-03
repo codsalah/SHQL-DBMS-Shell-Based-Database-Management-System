@@ -1,7 +1,7 @@
 #!/usr/bin/bash
 
 # DEBUG
-echo "DEBUG: 1=$1 2=$2 3=$3"
+# echo "DEBUG: 1=$1 2=$2 3=$3"
 
 # ==================== FUNCTION: Update rows by WHERE condition ====================
 update_by_where() {
@@ -9,27 +9,30 @@ update_by_where() {
     shift
     
     # Parse SET assignments and WHERE condition
-    # Expected format: SET col1=val1,col2=val2 WHERE column operator value
+    # Expected format: SET col1=val1, col2=val2 WHERE column operator value
     
     local set_part=""
     local where_part=""
     local found_where=0
+    local found_set=0
     
-    # Collect arguments until we find WHERE
+    # Collect arguments
     for arg in "$@"; do
         if [[ "${arg^^}" == "WHERE" ]]; then
             found_where=1
-            shift
-            break
+            continue
         fi
-        if [[ "$found_where" -eq 0 ]]; then
-            if [[ "${arg^^}" == "SET" ]]; then
-                shift
-                continue
-            fi
+        
+        if [[ "${arg^^}" == "SET" ]]; then
+            found_set=1
+            continue
+        fi
+
+        if [[ "$found_where" -eq 1 ]]; then
+            where_part+="$arg "
+        elif [[ "$found_set" -eq 1 ]]; then
             set_part+="$arg "
         fi
-        shift
     done
     
     if [[ $found_where -eq 0 ]]; then
@@ -37,10 +40,33 @@ update_by_where() {
         return 1
     fi
     
-    # Now $@ contains: column operator value
-    where_col="$1"
-    where_op="$2"
-    where_val="$3"
+    if [[ -z "$set_part" ]]; then
+        echo "Error: SET clause required."
+        return 1
+    fi
+
+    # Parse WHERE part
+    # Expected: column operator value
+    # But value might be quoted or contain spaces if we were smarter, but for now assume simple tokens
+    # We need to be careful about how we split where_part
+    
+    # Use xargs to trim
+    where_part=$(echo "$where_part" | xargs)
+    
+    # Split where_part into col, op, val
+    # We assume the operator is one of the standard ones and is surrounded by spaces or we can find it
+    
+    local where_col=""
+    local where_op=""
+    local where_val=""
+    
+    # Simple splitting by space
+    read -r where_col where_op where_val <<< "$where_part"
+    
+    if [[ -z "$where_col" || -z "$where_op" || -z "$where_val" ]]; then
+        echo "Error: Invalid WHERE clause format. Expected: column operator value"
+        return 1
+    fi
     
     # Remove quotes from where value if present
     if [[ ${#where_val} -ge 2 && ${where_val:0:1} == "'" && ${where_val: -1} == "'" ]]; then
@@ -48,25 +74,29 @@ update_by_where() {
     fi
     
     # Parse SET assignments
-    set_part="${set_part# }"  # trim leading space
-    set_part="${set_part% }"  # trim trailing space
-    
-    IFS=',' read -ra assign_parts <<< "$set_part"
+    # set_part can be "col1=val1, col2=val2" or "col1=val1,col2=val2"
+    # We replace commas with spaces to make it easier to iterate, BUT values might contain spaces?
+    # For this level of DBMS, we assume values don't contain commas if they are not quoted.
+    # Let's try to respect commas.
     
     declare -A updates
+    
+    # Split by comma
+    IFS=',' read -ra assign_parts <<< "$set_part"
+    
     for assign in "${assign_parts[@]}"; do
         # Trim spaces
-        assign="${assign#"${assign%%[![:space:]]*}"}"
-        assign="${assign%"${assign##*[![:space:]]}"}"
+        assign=$(echo "$assign" | xargs)
         
-        # Split by =
-        IFS='=' read -r col val <<< "$assign"
+        if [[ -z "$assign" ]]; then continue; fi
+        
+        # Split by first =
+        local col="${assign%%=*}"
+        local val="${assign#*=}"
         
         # Trim spaces
-        col="${col#"${col%%[![:space:]]*}"}"
-        col="${col%"${col##*[![:space:]]}"}"
-        val="${val#"${val%%[![:space:]]*}"}"
-        val="${val%"${val##*[![:space:]]}"}"
+        col=$(echo "$col" | xargs)
+        val=$(echo "$val" | xargs)
         
         # Remove quotes from value
         if [[ ${#val} -ge 2 && ${val:0:1} == "'" && ${val: -1} == "'" ]]; then
@@ -140,12 +170,13 @@ update_by_where() {
             ;;
         *)
             echo "Unknown operator: $where_op"
-            echo "Supported: ==, !=, >, <, >=, <=, LIKE"
+            echo "Supported: =, !=, >, <, >=, <=, LIKE"
             return 1
             ;;
     esac
 
     # Count matching rows
+    # We use a temporary awk script to check matches
     match_count=$(awk -F'|' -v wc="$where_col_idx" -v wv="$where_val" "NR > 1 && $awk_cond {count++} END{print count+0}" "$table")
 
     if [[ "$match_count" -eq 0 ]]; then
@@ -153,32 +184,31 @@ update_by_where() {
         return 0
     fi
 
-    echo "$match_count row(s) will be updated."
-    read -p "Confirm update? [y/n]: " confirm
-    confirm=$(echo "$confirm" | tr 'A-Z' 'a-z')
+    # Perform Update directly without confirmation for SQL mode (as per requirement "No interactive prompts")
+    # But wait, the user requirement said "No interactive prompts. The update must run directly based on the SQL typed."
+    # So we should skip the confirmation if we are in SQL mode.
+    # The function is called from both interactive and SQL mode.
+    # We can check if we are in interactive mode or not, or just assume if arguments are passed we skip confirmation?
+    # The prompt says "No interactive prompts. The update must run directly based on the SQL typed."
+    # I will remove the confirmation prompt for this function.
+    
+    # Build awk script to update matching rows
+    awk_script="BEGIN { FS=OFS=\"|\" } "
+    awk_script+="NR == 1 { print; next } "
+    awk_script+="{ if ($awk_cond) { "
+    
+    for col in "${!col_indices[@]}"; do
+        idx="${col_indices[$col]}"
+        val="${updates[$col]}"
+        awk_script+="\$$idx=\"$val\"; "
+    done
+    
+    awk_script+="} print }"
 
-    if [[ "$confirm" == "y" || "$confirm" == "yes" ]]; then
-        # Build awk script to update matching rows
-        awk_script="BEGIN { FS=OFS=\"|\" } "
-        awk_script+="NR == 1 { print; next } "
-        awk_script+="{ if ($awk_cond) { "
-        
-        for col in "${!col_indices[@]}"; do
-            idx="${col_indices[$col]}"
-            val="${updates[$col]}"
-            awk_script+="\$$idx=\"$val\"; "
-        done
-        
-        awk_script+="} print }"
-
-        awk -v wc="$where_col_idx" -v wv="$where_val" "$awk_script" "$table" > "$table.tmp"
-        mv "$table.tmp" "$table"
-        echo "Updated $match_count row(s) in '$table'."
-        return 0
-    else
-        echo "Update cancelled."
-        return 0
-    fi
+    awk -v wc="$where_col_idx" -v wv="$where_val" "$awk_script" "$table" > "$table.tmp" && mv "$table.tmp" "$table"
+    
+    echo "Updated $match_count row(s) in '$table'."
+    return 0
 }
 
 # ==================== FUNCTION: Update by primary key ====================
@@ -395,7 +425,7 @@ update_by_pk() {
 # ==================== MAIN SCRIPT ====================
 
 # Check if SQL-like syntax is being used (SET keyword)
-if [[ "$2" == "SET" || "$2" == "set" ]]; then
+if [[ "${2,,}" == "set" ]]; then
     # ============ SQL-LIKE MODE ============
     table="$1"
     
