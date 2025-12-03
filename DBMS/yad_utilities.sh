@@ -55,36 +55,35 @@ label:first-child {
 }
 
 button { 
-    background-image: linear-gradient(to bottom, #fbbf24, #f59e0b); 
-    color: #ffffff; 
+    background-color: #ffffff; 
+    color: #1f2937; 
     font-weight: bold; 
     font-size: 14pt; 
     border-radius: 14px; 
     padding: 18px 40px; 
     margin: 8px;
-    border: none; 
-    box-shadow: 0 6px 25px rgba(245,158,11,0.4); 
+    border: 1px solid #e5e7eb; 
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
     transition: all 0.3s ease; 
     min-width: 200px;
 }
 
 button:hover { 
-    background-image: linear-gradient(to bottom, #fcd34d, #fbbf24); 
-    box-shadow: 0 8px 30px rgba(245,158,11,0.55); 
-    transform: translateY(-3px) scale(1.02); 
+    background-color: #ffffff; 
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15); 
+    transform: translateY(-2px); 
 }
 
 button:active {
-    transform: translateY(-1px) scale(0.98);
-    box-shadow: 0 4px 20px rgba(245,158,11,0.5);
+    transform: translateY(0px);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
 }
 
 button label { 
     background-color: transparent; 
-    color: #ffffff;
+    color: #1f2937;
     font-size: 14pt;
     font-weight: bold;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
 image { 
@@ -124,11 +123,11 @@ show_options() {
     cat > "$css_file" << 'EOF'
 * { background-color: #ffffff; color: #1f2937; font-family: "Segoe UI", sans-serif; }
 window, dialog { background-color: #ffffff; border-radius: 12px; }
-treeview { background-color: #f5f5f5; color: #1f2937; border-radius: 10px; font-size: 11pt; padding: 4px; }
+treeview { background-color: #ffffff; color: #1f2937; border-radius: 10px; font-size: 11pt; padding: 4px; border: 1px solid #e5e7eb; }
 treeview header { background-color: #ffffff; color: #d97706; font-weight: bold; }
-button { background-image: linear-gradient(to bottom, #f59e0b, #d97706); color: white; border-radius: 10px; padding: 10px 24px; font-weight: bold; border: none; box-shadow: 0 4px 18px rgba(245,158,11,0.35); transition: all 0.2s ease; }
-button:hover { background-image: linear-gradient(to bottom, #fcd34d, #fbbf24); box-shadow: 0 6px 22px rgba(245,158,11,0.45); }
-button label { color: white; }
+button { background-color: #ffffff; color: #1f2937; border-radius: 10px; padding: 10px 24px; font-weight: bold; border: 1px solid #e5e7eb; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: all 0.2s ease; }
+button:hover { background-color: #ffffff; box-shadow: 0 4px 8px rgba(0,0,0,0.15); }
+button label { color: #1f2937; }
 EOF
 
     # Flatten options for yad list
@@ -158,9 +157,9 @@ show_results() {
 * { background-color: #ffffff; color: #065f46; font-family: "Segoe UI", sans-serif; font-size: 11pt; }
 window, dialog { background-color: #ffffff; border-radius: 12px; padding: 10px; box-shadow: 0 6px 20px rgba(0,0,0,0.1); }
 textview, label, text { background-color: #ffffff; color: #065f46; text-align: center; justify-content: center; }
-button { background-image: linear-gradient(to bottom, #404040, #1a1a1a); color: white; border-radius: 12px; padding: 10px 24px; font-weight: bold; border: none; box-shadow: 0 4px 18px rgba(0,0,0,0.35); transition: all 0.2s ease; }
-button:hover { background-image: linear-gradient(to bottom, #595959, #404040); box-shadow: 0 6px 22px rgba(0,0,0,0.45); }
-button label { color: white; }
+button { background-color: #ffffff; color: #1f2937; border-radius: 12px; padding: 10px 24px; font-weight: bold; border: 1px solid #e5e7eb; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: all 0.2s ease; }
+button:hover { background-color: #ffffff; box-shadow: 0 4px 8px rgba(0,0,0,0.15); }
+button label { color: #1f2937; }
 EOF
 
     yad --title="$title" \
@@ -180,20 +179,20 @@ show_goodbye_dialog() {
 window, dialog { background-color: #ffffff; border-radius: 12px; }
 label, text { text-align: center; justify-content: center; }
 button {
-    background-image: linear-gradient(to bottom, #404040, #1a1a1a);
-    color: white;
+    background-color: #ffffff;
+    color: #1f2937;
     border-radius: 10px;
     padding: 10px 24px;
     font-weight: bold;
-    border: none;
-    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     transition: all 0.2s ease;
 }
 button:hover {
-    background-image: linear-gradient(to bottom, #595959, #404040);
-    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.45);
+    background-color: #ffffff;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
-button label { color: white; }
+button label { color: #1f2937; }
 EOF
 
     yad --title="👋  Goodbye!" \
@@ -228,9 +227,9 @@ show_error_dialog() {
 * { background-color: #ffffff; color: #991b1b; font-family: "Segoe UI", sans-serif; }
 window, dialog { background-color: #ffffff; border-radius: 12px; }
 label, text { text-align: center; justify-content: center; }
-button { background-image: linear-gradient(to bottom, #404040, #1a1a1a); color: white; border-radius: 10px; padding: 10px 24px; font-weight: bold; border: none; }
-button:hover { background-image: linear-gradient(to bottom, #595959, #404040); }
-button label { color: white; }
+button { background-color: #ffffff; color: #1f2937; border-radius: 10px; padding: 10px 24px; font-weight: bold; border: 1px solid #e5e7eb; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+button:hover { background-color: #ffffff; box-shadow: 0 4px 8px rgba(0,0,0,0.15); }
+button label { color: #1f2937; }
 EOF
 
     yad --title="⚠️  Error" \
@@ -256,9 +255,9 @@ show_info_dialog() {
 * { background-color: #ffffff; color: #1e40af; font-family: "Segoe UI", sans-serif; }
 window, dialog { background-color: #ffffff; border-radius: 12px; }
 label, text { text-align: center; justify-content: center; }
-button { background-image: linear-gradient(to bottom, #404040, #1a1a1a); color: white; border-radius: 10px; padding: 10px 24px; font-weight: bold; border: none; }
-button:hover { background-image: linear-gradient(to bottom, #595959, #404040); }
-button label { color: white; }
+button { background-color: #ffffff; color: #1f2937; border-radius: 10px; padding: 10px 24px; font-weight: bold; border: 1px solid #e5e7eb; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+button:hover { background-color: #ffffff; box-shadow: 0 4px 8px rgba(0,0,0,0.15); }
+button label { color: #1f2937; }
 EOF
 
     yad --title="$title" \
@@ -282,9 +281,9 @@ show_question_dialog() {
 * { background-color: #ffffff; color: #92400e; font-family: "Segoe UI", sans-serif; }
 window, dialog { background-color: #ffffff; border-radius: 12px; }
 label, text { text-align: center; justify-content: center; }
-button { background-image: linear-gradient(to bottom, #404040, #1a1a1a); color: white; border-radius: 10px; padding: 10px 24px; font-weight: bold; border: none; }
-button:hover { background-image: linear-gradient(to bottom, #595959, #404040); }
-button label { color: white; }
+button { background-color: #ffffff; color: #1f2937; border-radius: 10px; padding: 10px 24px; font-weight: bold; border: 1px solid #e5e7eb; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+button:hover { background-color: #ffffff; box-shadow: 0 4px 8px rgba(0,0,0,0.15); }
+button label { color: #1f2937; }
 EOF
 
     yad --question \
@@ -314,10 +313,10 @@ show_entry_dialog() {
 * { background-color: #ffffff; color: #1f2937; font-family: "Segoe UI", sans-serif; }
 window, dialog { background-color: #ffffff; border-radius: 12px; }
 label, text { text-align: center; justify-content: center; }
-entry { background-color: #f5f5f5; color: #1f2937; border-radius: 8px; padding: 8px; }
-button { background-image: linear-gradient(to bottom, #404040, #1a1a1a); color: white; border-radius: 10px; padding: 10px 24px; font-weight: bold; border: none; }
-button:hover { background-image: linear-gradient(to bottom, #595959, #404040); }
-button label { color: white; }
+entry { background-color: #ffffff; color: #1f2937; border-radius: 8px; padding: 8px; border: 1px solid #e5e7eb; }
+button { background-color: #ffffff; color: #1f2937; border-radius: 10px; padding: 10px 24px; font-weight: bold; border: 1px solid #e5e7eb; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+button:hover { background-color: #ffffff; box-shadow: 0 4px 8px rgba(0,0,0,0.15); }
+button label { color: #1f2937; }
 EOF
 
     result=$(yad --entry \
