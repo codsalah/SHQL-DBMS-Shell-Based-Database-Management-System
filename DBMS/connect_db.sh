@@ -74,8 +74,7 @@ do
                     "edit-cut" "Delete from Table" "Remove data from table"
                     "view-refresh" "Update Table" "Modify data in table"
                     "system-search" "Select from Table" "Query data from table"
-                    "edit-clear" "Truncate Table" "Empty a table"
-                    "system-run" "Sort Index Search" "Search using index"
+                    "edit-clear" "Truncate Table" "Empty a table" 
                 )
                 
                 choice=$(show_options "Table Menu: $name" "Select an operation:" "${table_options[@]}")
@@ -94,7 +93,6 @@ do
                     "Update Table") "$DBMS_DIR/update_tb.sh" ;;
                     "Select from Table") "$DBMS_DIR/select_from_tb.sh" ;;
                     "Truncate Table") "$DBMS_DIR/truncate_tb.sh" ;;
-                    "Sort Index Search") "$DBMS_DIR/sort_index_search.sh" ;;
                 esac
             done
             
