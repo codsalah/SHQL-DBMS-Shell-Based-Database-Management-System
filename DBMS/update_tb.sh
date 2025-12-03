@@ -1,5 +1,11 @@
 #!/usr/bin/bash
 
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Source YAD utility functions
+source "$SCRIPT_DIR/yad_utilities.sh"
+
 # DEBUG
 # echo "DEBUG: 1=$1 2=$2 3=$3"
 
@@ -36,25 +42,25 @@ update_by_where() {
     done
     
     if [[ $found_where -eq 0 ]]; then
-        echo "Error: WHERE clause required."
+        if [ "$DBMS_MODE" = "gui" ]; then
+            show_error_dialog "WHERE clause required."
+        else
+            echo "Error: WHERE clause required."
+        fi
         return 1
     fi
     
     if [[ -z "$set_part" ]]; then
-        echo "Error: SET clause required."
+        if [ "$DBMS_MODE" = "gui" ]; then
+            show_error_dialog "SET clause required."
+        else
+            echo "Error: SET clause required."
+        fi
         return 1
     fi
 
     # Parse WHERE part
-    # Expected: column operator value
-    # But value might be quoted or contain spaces if we were smarter, but for now assume simple tokens
-    # We need to be careful about how we split where_part
-    
-    # Use xargs to trim
     where_part=$(echo "$where_part" | xargs)
-    
-    # Split where_part into col, op, val
-    # We assume the operator is one of the standard ones and is surrounded by spaces or we can find it
     
     local where_col=""
     local where_op=""
@@ -64,7 +70,11 @@ update_by_where() {
     read -r where_col where_op where_val <<< "$where_part"
     
     if [[ -z "$where_col" || -z "$where_op" || -z "$where_val" ]]; then
-        echo "Error: Invalid WHERE clause format. Expected: column operator value"
+        if [ "$DBMS_MODE" = "gui" ]; then
+            show_error_dialog "Invalid WHERE clause format.\nExpected: column operator value"
+        else
+            echo "Error: Invalid WHERE clause format. Expected: column operator value"
+        fi
         return 1
     fi
     
@@ -74,11 +84,6 @@ update_by_where() {
     fi
     
     # Parse SET assignments
-    # set_part can be "col1=val1, col2=val2" or "col1=val1,col2=val2"
-    # We replace commas with spaces to make it easier to iterate, BUT values might contain spaces?
-    # For this level of DBMS, we assume values don't contain commas if they are not quoted.
-    # Let's try to respect commas.
-    
     declare -A updates
     
     # Split by comma
@@ -120,7 +125,11 @@ update_by_where() {
     done
 
     if [[ $where_col_idx -eq -1 ]]; then
-        echo "WHERE column '$where_col' not found in table '$table'."
+        if [ "$DBMS_MODE" = "gui" ]; then
+            show_error_dialog "WHERE column '$where_col' not found in table '$table'."
+        else
+            echo "WHERE column '$where_col' not found in table '$table'."
+        fi
         return 1
     fi
 
@@ -136,7 +145,11 @@ update_by_where() {
             fi
         done
         if [[ $found -eq 0 ]]; then
-            echo "Column '$col' not found in table '$table'."
+            if [ "$DBMS_MODE" = "gui" ]; then
+                show_error_dialog "Column '$col' not found in table '$table'."
+            else
+                echo "Column '$col' not found in table '$table'."
+            fi
             return 1
         fi
     done
@@ -169,29 +182,28 @@ update_by_where() {
             where_val="$regex_pattern"
             ;;
         *)
-            echo "Unknown operator: $where_op"
-            echo "Supported: =, !=, >, <, >=, <=, LIKE"
+            if [ "$DBMS_MODE" = "gui" ]; then
+                show_error_dialog "Unknown operator: $where_op\nSupported: =, !=, >, <, >=, <=, LIKE"
+            else
+                echo "Unknown operator: $where_op"
+                echo "Supported: =, !=, >, <, >=, <=, LIKE"
+            fi
             return 1
             ;;
     esac
 
     # Count matching rows
-    # We use a temporary awk script to check matches
     match_count=$(awk -F'|' -v wc="$where_col_idx" -v wv="$where_val" "NR > 1 && $awk_cond {count++} END{print count+0}" "$table")
 
     if [[ "$match_count" -eq 0 ]]; then
-        echo "No rows match the WHERE condition."
+        if [ "$DBMS_MODE" = "gui" ]; then
+            show_info_dialog "No Matches" "No rows match the WHERE condition."
+        else
+            echo "No rows match the WHERE condition."
+        fi
         return 0
     fi
 
-    # Perform Update directly without confirmation for SQL mode (as per requirement "No interactive prompts")
-    # But wait, the user requirement said "No interactive prompts. The update must run directly based on the SQL typed."
-    # So we should skip the confirmation if we are in SQL mode.
-    # The function is called from both interactive and SQL mode.
-    # We can check if we are in interactive mode or not, or just assume if arguments are passed we skip confirmation?
-    # The prompt says "No interactive prompts. The update must run directly based on the SQL typed."
-    # I will remove the confirmation prompt for this function.
-    
     # Build awk script to update matching rows
     awk_script="BEGIN { FS=OFS=\"|\" } "
     awk_script+="NR == 1 { print; next } "
@@ -207,7 +219,11 @@ update_by_where() {
 
     awk -v wc="$where_col_idx" -v wv="$where_val" "$awk_script" "$table" > "$table.tmp" && mv "$table.tmp" "$table"
     
-    echo "Updated $match_count row(s) in '$table'."
+    if [ "$DBMS_MODE" = "gui" ]; then
+        show_info_dialog "Success" "Updated $match_count row(s) in '$table'."
+    else
+        echo "Updated $match_count row(s) in '$table'."
+    fi
     return 0
 }
 
@@ -217,21 +233,34 @@ update_by_pk() {
     local pk_col_index="$2"
     local pk_col_name="$3"
     
-    echo "Primary key column is: $pk_col_name"
+    if [ "$DBMS_MODE" = "gui" ]; then
+        show_info_dialog "Primary Key" "Primary key column is: $pk_col_name"
+    else
+        echo "Primary key column is: $pk_col_name"
+    fi
 
     local pk_val
     local target_line
     
     while true
     do
-        read -p "Enter primary key value of the row to update: " pk_val
+        if [ "$DBMS_MODE" = "gui" ]; then
+            pk_val=$(show_entry_dialog "Primary Key Value" "Enter primary key value of the row to update:" "")
+            if [ $? -ne 0 ]; then return 0; fi
+        else
+            read -p "Enter primary key value of the row to update: " pk_val
+        fi
 
         # Trim spaces
         pk_val="${pk_val#"${pk_val%%[![:space:]]*}"}"
         pk_val="${pk_val%"${pk_val##*[![:space:]]}"}"
 
         if [[ -z "$pk_val" ]]; then
-            echo "Primary key value cannot be empty."
+            if [ "$DBMS_MODE" = "gui" ]; then
+                show_error_dialog "Primary key value cannot be empty."
+            else
+                echo "Primary key value cannot be empty."
+            fi
             continue
         fi
 
@@ -260,11 +289,19 @@ update_by_pk() {
         done < "$table"
 
         if [[ $target_line -eq 0 ]]; then
-            echo "No row with primary key '$pk_val' found in table '$table'."
+            if [ "$DBMS_MODE" = "gui" ]; then
+                show_error_dialog "No row with primary key '$pk_val' found in table '$table'."
+            else
+                echo "No row with primary key '$pk_val' found in table '$table'."
+            fi
             continue
         fi
 
-        echo "Row found at line $target_line."
+        if [ "$DBMS_MODE" = "gui" ]; then
+            show_info_dialog "Row Found" "Row found at line $target_line."
+        else
+            echo "Row found at line $target_line."
+        fi
         break
     done
 
@@ -273,29 +310,47 @@ update_by_pk() {
     IFS='|' read -r -a header_cols <<< "$header_line"
 
     # Ask which column to update
-    echo "Columns in '$table':"
-    for ((i=0; i<${#header_cols[@]}; i++)); do
-        num=$((i+1))
-        printf "  %d) %s\n" "$num" "${header_cols[$i]}"
-    done
+    if [ "$DBMS_MODE" = "gui" ]; then
+        # Build options for YAD
+        local col_options=()
+        for col in "${header_cols[@]}"; do
+            col_options+=("dialog-information" "$col" "Column")
+        done
+        
+        col_name=$(show_options "Select Column" "Select column to update:" "${col_options[@]}")
+        if [ $? -ne 0 ]; then return 0; fi
+        col_name=$(echo "$col_name" | tr -d '\n')
+    else
+        echo "Columns in '$table':"
+        for ((i=0; i<${#header_cols[@]}; i++)); do
+            num=$((i+1))
+            printf "  %d) %s\n" "$num" "${header_cols[$i]}"
+        done
+    fi
 
-    local col_name
     local col_index
     local attempt=0
     
     while true; do
-        read -p "Enter column name to update: " col_name
+        if [ "$DBMS_MODE" != "gui" ]; then
+            read -p "Enter column name to update: " col_name
+        fi
 
         # Trim spaces
         col_name="${col_name#"${col_name%%[![:space:]]*}"}"
         col_name="${col_name%"${col_name##*[![:space:]]}"}"
 
         if [[ -z "$col_name" ]]; then
-            echo "Column name cannot be empty."
-            ((attempt++))
-            if [[ $attempt -ge 3 ]]; then
-                echo "Invalid input entered 3 times. Exiting."
+            if [ "$DBMS_MODE" = "gui" ]; then
+                show_error_dialog "Column name cannot be empty."
                 return 1
+            else
+                echo "Column name cannot be empty."
+                ((attempt++))
+                if [[ $attempt -ge 3 ]]; then
+                    echo "Invalid input entered 3 times. Exiting."
+                    return 1
+                fi
             fi
             continue
         fi
@@ -310,11 +365,16 @@ update_by_pk() {
         done
 
         if [[ $col_index -eq -1 ]]; then
-            echo "Column '$col_name' not found in table '$table'."
-            ((attempt++))
-            if [[ $attempt -ge 3 ]]; then
-                echo "Invalid column name entered 3 times. Exiting."
+            if [ "$DBMS_MODE" = "gui" ]; then
+                show_error_dialog "Column '$col_name' not found in table '$table'."
                 return 1
+            else
+                echo "Column '$col_name' not found in table '$table'."
+                ((attempt++))
+                if [[ $attempt -ge 3 ]]; then
+                    echo "Invalid column name entered 3 times. Exiting."
+                    return 1
+                fi
             fi
             continue
         fi
@@ -325,7 +385,12 @@ update_by_pk() {
     col_idx0=$((col_index - 1))
 
     # Ask for new value
-    read -p "Enter new value for column '$col_name': " new_val
+    if [ "$DBMS_MODE" = "gui" ]; then
+        new_val=$(show_entry_dialog "New Value" "Enter new value for column '$col_name':" "")
+        if [ $? -ne 0 ]; then return 0; fi
+    else
+        read -p "Enter new value for column '$col_name': " new_val
+    fi
 
     # Trim spaces
     new_val="${new_val#"${new_val%%[![:space:]]*}"}"
@@ -335,7 +400,11 @@ update_by_pk() {
     if [[ $pk_col_index -ne -1 && $col_index -eq $pk_col_index ]]; then
         # Not null check
         if [[ -z "$new_val" ]]; then
-            echo "Primary key value cannot be NULL or empty."
+            if [ "$DBMS_MODE" = "gui" ]; then
+                show_error_dialog "Primary key value cannot be NULL or empty."
+            else
+                echo "Primary key value cannot be NULL or empty."
+            fi
             return 1
         fi
 
@@ -364,23 +433,36 @@ update_by_pk() {
         done < "$table"
 
         if [[ $duplicate_found -eq 1 ]]; then
-            echo "Another row already has primary key value '$new_val'. Update cancelled."
+            if [ "$DBMS_MODE" = "gui" ]; then
+                show_error_dialog "Another row already has primary key value '$new_val'.\nUpdate cancelled."
+            else
+                echo "Another row already has primary key value '$new_val'. Update cancelled."
+            fi
             return 1
         fi
     fi
 
     # Confirm and apply the update
-    echo -e "\nYou are about to update:"
-    echo "  Table : $table"
-    echo "  Column: $col_name"
-    echo "  New value: $new_val"
+    local confirm_msg="You are about to update:\n\nTable: $table\nColumn: $col_name\nNew value: $new_val"
+    
+    if [ "$DBMS_MODE" = "gui" ]; then
+        if ! show_question_dialog "$confirm_msg"; then
+            show_info_dialog "Cancelled" "Update cancelled."
+            return 0
+        fi
+    else
+        echo -e "\nYou are about to update:"
+        echo "  Table : $table"
+        echo "  Column: $col_name"
+        echo "  New value: $new_val"
 
-    read -p "Are you sure you want to apply this change? [y/n]: " confirm
-    confirm=$(echo "$confirm" | tr 'A-Z' 'a-z')
+        read -p "Are you sure you want to apply this change? [y/n]: " confirm
+        confirm=$(echo "$confirm" | tr 'A-Z' 'a-z')
 
-    if [[ "$confirm" != "y" && "$confirm" != "yes" ]]; then
-        echo "Update cancelled."
-        return 0
+        if [[ "$confirm" != "y" && "$confirm" != "yes" ]]; then
+            echo "Update cancelled."
+            return 0
+        fi
     fi
 
     # Create tmp file and rebuild table with updated value
@@ -418,7 +500,12 @@ update_by_pk() {
 
     # Replace original table with updated version
     mv "$table.tmp" "$table"
-    echo "Value updated successfully in table '$table'."
+    
+    if [ "$DBMS_MODE" = "gui" ]; then
+        show_info_dialog "Success" "Value updated successfully in table '$table'."
+    else
+        echo "Value updated successfully in table '$table'."
+    fi
     return 0
 }
 
@@ -431,12 +518,20 @@ if [[ "${2,,}" == "set" ]]; then
     
     # Check if table exists
     if [[ ! -f "$table" ]]; then
-        echo "Table '$table' does not exist."
+        if [ "$DBMS_MODE" = "gui" ]; then
+            show_error_dialog "Table '$table' does not exist."
+        else
+            echo "Table '$table' does not exist."
+        fi
         exit 1
     fi
 
     if [[ ! -f "$table.meta" ]]; then
-        echo "Metadata file '$table.meta' not found for table '$table'."
+        if [ "$DBMS_MODE" = "gui" ]; then
+            show_error_dialog "Metadata file '$table.meta' not found for table '$table'."
+        else
+            echo "Metadata file '$table.meta' not found for table '$table'."
+        fi
         exit 1
     fi
 
@@ -454,7 +549,12 @@ while true
 do
     # Ask user for table name if not provided
     if [[ -z "$table" ]]; then
-        read -p "Enter table name: " table
+        if [ "$DBMS_MODE" = "gui" ]; then
+            table=$(show_entry_dialog "Update Table" "Enter table name:" "")
+            if [ $? -ne 0 ]; then exit 0; fi
+        else
+            read -p "Enter table name: " table
+        fi
     fi
 
     # Trim leading spaces
@@ -464,7 +564,11 @@ do
 
     # Check empty
     if [[ -z "$table" ]]; then
-        echo "Table name cannot be empty."
+        if [ "$DBMS_MODE" = "gui" ]; then
+            show_error_dialog "Table name cannot be empty."
+        else
+            echo "Table name cannot be empty."
+        fi
         table=""
         continue
     fi
@@ -475,14 +579,22 @@ do
 
     # Check data file exists
     if [[ ! -f "$data_file" ]]; then
-        echo "Table '$table' does not exist in this database."
+        if [ "$DBMS_MODE" = "gui" ]; then
+            show_error_dialog "Table '$table' does not exist in this database."
+        else
+            echo "Table '$table' does not exist in this database."
+        fi
         table=""
         continue
     fi
 
     # Check metadata file exists
     if [[ ! -f "$meta_file" ]]; then
-        echo "Metadata file '$meta_file' not found for table '$table'."
+        if [ "$DBMS_MODE" = "gui" ]; then
+            show_error_dialog "Metadata file '$meta_file' not found for table '$table'."
+        else
+            echo "Metadata file '$meta_file' not found for table '$table'."
+        fi
         table=""
         continue
     fi
@@ -513,35 +625,42 @@ for ((i=0; i<${#meta_cols[@]}; i++)); do
 done
 
 # Update menu
-echo -e "\n-----------------------------"
-echo "     Update Operations      "
-echo -e "-----------------------------\n"
-
-PS3="Choose update operation: "
-
-select choice in "Update Row (by PK)" "Update Rows (by WHERE)" "Cancel"
-do
-    case "$REPLY" in
-        # UPDATE BY PRIMARY KEY
-        1)
+if [ "$DBMS_MODE" = "gui" ]; then
+    local options=(
+        "dialog-information" "Update Row (by PK)" "Update a single row using primary key"
+        "dialog-information" "Update Rows (by WHERE)" "Update multiple rows using WHERE condition"
+        "dialog-error" "Cancel" "Cancel update operation"
+    )
+    
+    choice=$(show_options "Update Operations" "Choose update operation for table '$table':" "${options[@]}")
+    ret=$?
+    
+    if [ $ret -ne 0 ]; then
+        exit 0
+    fi
+    
+    case "$choice" in
+        "Update Row (by PK)")
             update_by_pk "$data_file" "$pk_col_index" "$pk_col_name"
-            break
             ;;
-
-        # UPDATE BY WHERE CONDITION
-        2)
+        "Update Rows (by WHERE)")
             # Get header
             header_line=$(head -n 1 "$data_file")
             IFS='|' read -r -a headers <<< "$header_line"
             
-            echo "Available columns:"
-            for ((i=0; i<${#headers[@]}; i++)); do
-                echo "  - ${headers[$i]}"
+            # Show available columns
+            cols_list=""
+            for col in "${headers[@]}"; do
+                cols_list+="  - $col\n"
             done
+            show_info_dialog "Available Columns" "$cols_list"
             
             # Get columns to update
-            read -p "Enter column(s) to update (comma-separated, e.g., name,age): " cols_input
-            read -p "Enter new value(s) (comma-separated, e.g., John,30): " vals_input
+            cols_input=$(show_entry_dialog "Columns to Update" "Enter column(s) to update\n(comma-separated, e.g., name,age):" "")
+            if [ $? -ne 0 ]; then exit 0; fi
+            
+            vals_input=$(show_entry_dialog "New Values" "Enter new value(s)\n(comma-separated, e.g., John,30):" "")
+            if [ $? -ne 0 ]; then exit 0; fi
             
             # Build SET clause
             IFS=',' read -ra col_arr <<< "$cols_input"
@@ -565,9 +684,25 @@ do
             done
             
             # Get WHERE clause
-            read -p "Enter WHERE column name: " where_col
-            read -p "Enter operator (==, !=, >, <, >=, <=, LIKE): " where_op
-            read -p "Enter value: " where_val
+            where_col=$(show_entry_dialog "WHERE Column" "Enter WHERE column name:" "")
+            if [ $? -ne 0 ]; then exit 0; fi
+            
+            # Operator selection
+            local op_options=(
+                "dialog-information" "==" "Equal to"
+                "dialog-information" "!=" "Not equal to"
+                "dialog-information" ">" "Greater than"
+                "dialog-information" "<" "Less than"
+                "dialog-information" ">=" "Greater than or equal"
+                "dialog-information" "<=" "Less than or equal"
+                "dialog-information" "LIKE" "Pattern matching"
+            )
+            where_op=$(show_options "Operator" "Select operator:" "${op_options[@]}")
+            if [ $? -ne 0 ]; then exit 0; fi
+            where_op=$(echo "$where_op" | tr -d '\n')
+            
+            where_val=$(show_entry_dialog "WHERE Value" "Enter value:" "")
+            if [ $? -ne 0 ]; then exit 0; fi
             
             # Trim
             where_col="${where_col#"${where_col%%[![:space:]]*}"}"
@@ -577,17 +712,89 @@ do
             
             # Call update_by_where
             update_by_where "$data_file" "SET" "$set_clause" "WHERE" "$where_col" "$where_op" "$where_val"
-            break
             ;;
-
-        # CANCEL
-        3)
-            echo -e "\nUpdate operation cancelled."
-            break
-            ;;
-
-        *)
-            echo -e "\nInvalid choice, try again.\n"
+        "Cancel")
+            show_info_dialog "Cancelled" "Update operation cancelled."
             ;;
     esac
-done
+else
+    # CLI Mode
+    echo -e "\n-----------------------------"
+    echo "     Update Operations      "
+    echo -e "-----------------------------\n"
+
+    PS3="Choose update operation: "
+
+    select choice in "Update Row (by PK)" "Update Rows (by WHERE)" "Cancel"
+    do
+        case "$REPLY" in
+            # UPDATE BY PRIMARY KEY
+            1)
+                update_by_pk "$data_file" "$pk_col_index" "$pk_col_name"
+                break
+                ;;
+
+            # UPDATE BY WHERE CONDITION
+            2)
+                # Get header
+                header_line=$(head -n 1 "$data_file")
+                IFS='|' read -r -a headers <<< "$header_line"
+                
+                echo "Available columns:"
+                for ((i=0; i<${#headers[@]}; i++)); do
+                    echo "  - ${headers[$i]}"
+                done
+                
+                # Get columns to update
+                read -p "Enter column(s) to update (comma-separated, e.g., name,age): " cols_input
+                read -p "Enter new value(s) (comma-separated, e.g., John,30): " vals_input
+                
+                # Build SET clause
+                IFS=',' read -ra col_arr <<< "$cols_input"
+                IFS=',' read -ra val_arr <<< "$vals_input"
+                
+                set_clause=""
+                for ((i=0; i<${#col_arr[@]}; i++)); do
+                    c="${col_arr[$i]}"
+                    v="${val_arr[$i]}"
+                    # Trim
+                    c="${c#"${c%%[![:space:]]*}"}"
+                    c="${c%"${c##*[![:space:]]}"}"
+                    v="${v#"${v%%[![:space:]]*}"}"
+                    v="${v%"${v##*[![:space:]]}"}"
+                    
+                    if [[ $i -eq 0 ]]; then
+                        set_clause="$c=$v"
+                    else
+                        set_clause="$set_clause,$c=$v"
+                    fi
+                done
+                
+                # Get WHERE clause
+                read -p "Enter WHERE column name: " where_col
+                read -p "Enter operator (==, !=, >, <, >=, <=, LIKE): " where_op
+                read -p "Enter value: " where_val
+                
+                # Trim
+                where_col="${where_col#"${where_col%%[![:space:]]*}"}"
+                where_col="${where_col%"${where_col##*[![:space:]]}"}"
+                where_val="${where_val#"${where_val%%[![:space:]]*}"}"
+                where_val="${where_val%"${where_val##*[![:space:]]}"}"
+                
+                # Call update_by_where
+                update_by_where "$data_file" "SET" "$set_clause" "WHERE" "$where_col" "$where_op" "$where_val"
+                break
+                ;;
+
+            # CANCEL
+            3)
+                echo -e "\nUpdate operation cancelled."
+                break
+                ;;
+
+            *)
+                echo -e "\nInvalid choice, try again.\n"
+                ;;
+        esac
+    done
+fi
