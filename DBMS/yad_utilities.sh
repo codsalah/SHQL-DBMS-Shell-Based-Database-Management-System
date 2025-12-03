@@ -308,7 +308,7 @@ show_entry_dialog() {
     local title="$1"
     local label="$2"
     local default="$3"
-    
+    # WOW
     local css_file="/tmp/yad_entry.css"
     cat > "$css_file" << 'EOF'
 * { background-color: #ffffff; color: #1f2937; font-family: "Segoe UI", sans-serif; }
