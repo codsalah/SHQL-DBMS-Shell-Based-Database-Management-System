@@ -15,7 +15,10 @@ get_col_index() {
     IFS='|' read -r -a headers <<< "$header_line"
 
     for i in "${!headers[@]}"; do
-        if [[ "${headers[$i]}" == "$col_name" ]]; then
+        # Trim whitespace from header
+        local trimmed_header=$(echo "${headers[$i]}" | xargs)
+        local trimmed_col=$(echo "$col_name" | xargs)
+        if [[ "$trimmed_header" == "$trimmed_col" ]]; then
             echo $((i + 1))
             return
         fi
@@ -104,21 +107,26 @@ select_specific_columns() {
 # Select by primary key
 select_by_pk() {
     local table=$1
+    local searchTarget=$2
+    
     if [[ ! -f "$table" ]]; then
         echo "Table '$table' not found."
         return
     fi
 
-    if [ "$DBMS_MODE" = "gui" ]; then
-        searchTarget=$(show_entry_dialog "Select by PK" "Enter PK value:" "")
-        if [ $? -ne 0 ] || [ -z "$searchTarget" ]; then
-            return
-        fi
-    else
-        read -p "Enter PK value: " searchTarget
-        if [[ -z "$searchTarget" ]]; then
-            echo "No search target provided."
-            return
+    # If searchTarget is not provided, prompt for it
+    if [[ -z "$searchTarget" ]]; then
+        if [ "$DBMS_MODE" = "gui" ]; then
+            searchTarget=$(show_entry_dialog "Select by PK" "Enter PK value:" "")
+            if [ $? -ne 0 ] || [ -z "$searchTarget" ]; then
+                return
+            fi
+        else
+            read -p "Enter PK value: " searchTarget
+            if [[ -z "$searchTarget" ]]; then
+                echo "No search target provided."
+                return
+            fi
         fi
     fi
 
@@ -182,63 +190,149 @@ select_by_pk() {
     fi
 }
 
-# Function to handle numerical conditions
+# NEW FUNCTION: Select with WHERE clause (handles all operators including LIKE)
+select_where() {
+    local table=$1
+    local col=$2
+    local op=$3
+    local val=$4
+    
+    if [[ ! -f "$table" ]]; then
+        echo "Table '$table' not found."
+        return 1
+    fi
+    
+    # Get column index
+    local col_idx=$(get_col_index "$table" "$col")
+    
+    if [[ $col_idx -eq -1 ]]; then
+        if [ "$DBMS_MODE" = "gui" ]; then
+            show_error_dialog "Column '$col' not found."
+        else
+            echo "Column '$col' not found."
+        fi
+        return 1
+    fi
+    
+    table_name=$(basename "$table")
+    
+    # Handle LIKE operator specially
+    if [[ "${op,,}" == "like" ]]; then
+        # Convert SQL LIKE pattern to regex
+        local regex_pattern="${val//%/.*}"
+        regex_pattern="${regex_pattern//_/.}"
+        regex_pattern="^${regex_pattern}$"
+        
+        if [ "$DBMS_MODE" = "gui" ]; then
+            local output=$((head -n 1 "$table"; awk -F'|' -v c="$col_idx" -v p="$regex_pattern" 'NR > 1 {val = $c; gsub(/^ +| +$/, "", val); if (val ~ p) print $0}' "$table") | print_table)
+            show_results "Query Results: $table_name" "$output" 800 500
+        else
+            echo -e "\n--- Query Results: $table_name ---"
+            (head -n 1 "$table"; awk -F'|' -v c="$col_idx" -v p="$regex_pattern" 'NR > 1 {val = $c; gsub(/^ +| +$/, "", val); if (val ~ p) print $0}' "$table") | print_table
+        fi
+        return 0
+    fi
+    
+    # Validate operator for non-LIKE operations
+    if [[ ! "$op" =~ ^(==|!=|>|<|>=|<=)$ ]]; then
+        if [ "$DBMS_MODE" = "gui" ]; then
+            show_error_dialog "Invalid operator: $op. Use: ==, !=, >, <, >=, <=, LIKE"
+        else
+            echo "Invalid operator: $op. Valid operators: ==, !=, >, <, >=, <=, LIKE"
+        fi
+        return 1
+    fi
+    
+    # Check if value is numeric or string
+    if [[ "$val" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+        # Numeric comparison
+        if [ "$DBMS_MODE" = "gui" ]; then
+            local output=$((head -n 1 "$table"; awk -F'|' -v c="$col_idx" -v v="$val" "NR > 1 && \$c $op v" "$table") | print_table)
+            show_results "Query Results: $table_name" "$output" 800 500
+        else
+            echo -e "\n--- Query Results: $table_name ---"
+            (head -n 1 "$table"; awk -F'|' -v c="$col_idx" -v v="$val" "NR > 1 && \$c $op v" "$table") | print_table
+        fi
+    else
+        # String comparison (only == and != work for strings)
+        if [[ "$op" == "==" ]]; then
+            if [ "$DBMS_MODE" = "gui" ]; then
+                local output=$((head -n 1 "$table"; awk -F'|' -v c="$col_idx" -v v="$val" 'NR > 1 {val_col = $c; gsub(/^ +| +$/, "", val_col); if (val_col == v) print $0}' "$table") | print_table)
+                show_results "Query Results: $table_name" "$output" 800 500
+            else
+                echo -e "\n--- Query Results: $table_name ---"
+                (head -n 1 "$table"; awk -F'|' -v c="$col_idx" -v v="$val" 'NR > 1 {val_col = $c; gsub(/^ +| +$/, "", val_col); if (val_col == v) print $0}' "$table") | print_table
+            fi
+        elif [[ "$op" == "!=" ]]; then
+            if [ "$DBMS_MODE" = "gui" ]; then
+                local output=$((head -n 1 "$table"; awk -F'|' -v c="$col_idx" -v v="$val" 'NR > 1 {val_col = $c; gsub(/^ +| +$/, "", val_col); if (val_col != v) print $0}' "$table") | print_table)
+                show_results "Query Results: $table_name" "$output" 800 500
+            else
+                echo -e "\n--- Query Results: $table_name ---"
+                (head -n 1 "$table"; awk -F'|' -v c="$col_idx" -v v="$val" 'NR > 1 {val_col = $c; gsub(/^ +| +$/, "", val_col); if (val_col != v) print $0}' "$table") | print_table
+            fi
+        else
+            if [ "$DBMS_MODE" = "gui" ]; then
+                show_error_dialog "Operator $op not supported for string values. Use == or !="
+            else
+                echo "Error: Operator $op not supported for string values. Use == or != for strings."
+            fi
+            return 1
+        fi
+    fi
+}
+
+# Function to handle numerical conditions (kept for backward compatibility)
 select_numerical_condition() {
     local table=$1
+    local col=$2
+    local op=$3
+    local val=$4
+    
     if [[ ! -f "$table" ]]; then
         echo "Table '$table' not found."
         return
     fi
 
-    if [ "$DBMS_MODE" = "gui" ]; then
-        col=$(show_entry_dialog "Numerical Condition" "Enter column name:" "")
-        if [ $? -ne 0 ] || [ -z "$col" ]; then
-            return
-        fi
-        
-        local col_idx=$(get_col_index "$table" "$col")
-        if [[ $col_idx -eq -1 ]]; then
-            show_error_dialog "Column '$col' not found."
-            return
-        fi
-        
-        op=$(show_entry_dialog "Operator" "Enter operator (==, !=, >, <, >=, <=):" "==")
-        if [ $? -ne 0 ] || [ -z "$op" ]; then
-            return
-        fi
-        
-        val=$(show_entry_dialog "Value" "Enter value:" "")
-        if [ $? -ne 0 ] || [ -z "$val" ]; then
-            return
-        fi
-    else
-        read -p "Enter column name: " col
-        local col_idx=$(get_col_index "$table" "$col")
-
-        if [[ $col_idx -eq -1 ]]; then
-            echo "Column '$col' not found."
-            return
-        fi
-
-        read -p "Enter operator (==, !=, >, <, >=, <=): " op
-        read -p "Enter value: " val
-    fi
-
-    if [[ ! "$op" =~ ^(==|!=|>|<|>=|<=)$ ]]; then
+    # If parameters not provided, prompt for them
+    if [[ -z "$col" ]] || [[ -z "$op" ]] || [[ -z "$val" ]]; then
         if [ "$DBMS_MODE" = "gui" ]; then
-            show_error_dialog "Invalid operator: $op"
+            col=$(show_entry_dialog "Numerical Condition" "Enter column name:" "")
+            if [ $? -ne 0 ] || [ -z "$col" ]; then
+                return
+            fi
+            
+            local col_idx=$(get_col_index "$table" "$col")
+            if [[ $col_idx -eq -1 ]]; then
+                show_error_dialog "Column '$col' not found."
+                return
+            fi
+            
+            op=$(show_entry_dialog "Operator" "Enter operator (==, !=, >, <, >=, <=):" "==")
+            if [ $? -ne 0 ] || [ -z "$op" ]; then
+                return
+            fi
+            
+            val=$(show_entry_dialog "Value" "Enter value:" "")
+            if [ $? -ne 0 ] || [ -z "$val" ]; then
+                return
+            fi
         else
-            echo "Invalid operator: $op"
+            read -p "Enter column name: " col
+            local col_idx=$(get_col_index "$table" "$col")
+
+            if [[ $col_idx -eq -1 ]]; then
+                echo "Column '$col' not found."
+                return
+            fi
+
+            read -p "Enter operator (==, !=, >, <, >=, <=): " op
+            read -p "Enter value: " val
         fi
-        return
     fi
 
-    if [ "$DBMS_MODE" = "gui" ]; then
-        local output=$((head -n 1 "$table"; awk -F'|' -v c="$col_idx" -v v="$val" "NR > 1 && \$c $op v" "$table") | print_table)
-        show_results "Query Results" "$output" 800 500
-    else
-        (head -n 1 "$table"; awk -F'|' -v c="$col_idx" -v v="$val" "NR > 1 && \$c $op v" "$table") | print_table
-    fi
+    # Use the new select_where function
+    select_where "$table" "$col" "$op" "$val"
 }
 
 # Function to handle string conditions
