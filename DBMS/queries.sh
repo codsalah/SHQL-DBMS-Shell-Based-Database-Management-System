@@ -298,52 +298,94 @@ do
             fi
 
             # ===================== SQL-Like Queries =====================
+            
+	    # Source the select functions
+	    source "$db_path/select_from_tb.sh"
 
-            # select all from <table name> where <pk column name> = <value>
+	    # ===========================================
+	    # SELECT ALL FROM <tableName> WHERE <columnName> <operator> <value>
+	    # ===========================================
 	    if [[ "$sw1" == "select" && "$sw2" == "all" && "${3,,}" == "from" && "${5,,}" == "where" ]]; then
-	        if [[ -z "$6" || -z "$8" ]]; then
-		    echo "Usage: select all from <table_name> where <column_name> = <value>"
+	        if [[ -z "$4" || -z "$6" || -z "$7" || -z "$8" ]]; then
+		    echo "Usage: select all from <table_name> where <column_name> <operator> <value>"
+		    echo "Operators: == != > < >= <= LIKE"
+		    echo "LIKE examples: select all from users where name LIKE 'John%'"
+		    echo "               select all from users where name LIKE '%son'"
+		    echo "               select all from users where name LIKE '%oh%'"
+		    echo "String values: select all from users where name == 'John'"
+		    echo "Numeric values: select all from products where price > 100"
 		    continue
 	        fi
-	        tbl="$4"
-	        column_name="$6"  # column name (primary key column)
-	        value="$8"  # value for the primary key
-
-	        # Call select_by_pk with the value directly passed in
-	        select_by_pk "$db_path/$tbl" "$value"
+	    
+	        tbl="$4"           # Table name
+	        column_name="$6"   # Column name
+	        operator="$7"      # Operator (==, !=, >, <, >=, <=, LIKE)
+	        value="$8"         # Value to compare
+	    
+	        # Validate table exists
+	        if [[ ! -f "$db_path/$tbl" ]]; then
+		    echo "Error: Table '$tbl' does not exist."
+		    continue
+	        fi
+	    
+	        if [[ ! -f "$db_path/$tbl.meta" ]]; then
+		    echo "Error: Metadata for table '$tbl' does not exist."
+		    continue
+	        fi
+	    
+	        # Call the select_where function (now supports LIKE)
+	        select_where "$db_path/$tbl" "$column_name" "$operator" "$value"
 	        continue
 	    fi
 
-            # select <column name>,<column name> from <table name>
-	    if [[ "$sw1" == "select" && "$sw2" != "all" && "${3,,}" == "from" ]]; then
-    	    	if [[ -z "$4" ]]; then
-        	    echo "Usage: select <column_names> from <table_name>"
-        	    continue
-    		fi
-    
-    	        tbl="$4"  # Table name is the 4th argument
-    	        columns="$2"  # Column names (comma-separated) are the first argument
-    
-    	        # Remove commas and prepare for the column selection
-    	        column_names="${columns//,/ }"
-    
-    	        # Call select_specific_columns with the full table path and column names
-    	        select_specific_columns "$db_path/$tbl" "$column_names"
-    	        continue
+	    # ===========================================
+	    # SELECT ALL FROM <tableName>
+	    # ===========================================
+	    if [[ "$sw1" == "select" && "$sw2" == "all" && "${3,,}" == "from" && -z "$5" ]]; then
+	        if [[ -z "$4" ]]; then
+		    echo "Usage: select all from <table_name>"
+		    continue
+	        fi
+	    
+	        tbl="$4"
+	    
+	        # Validate table exists
+	        if [[ ! -f "$db_path/$tbl" ]]; then
+		    echo "Error: Table '$tbl' does not exist."
+		    continue
+	        fi
+	    
+	        # Call select_all function
+	        select_all "$db_path/$tbl"
+	        continue
 	    fi
 
-
-            # select all from <table name>
-            if [[ "$sw1" == "select" && "$sw2" == "all" && "${3,,}" == "from" ]]; then
-                if [[ -z "$4" ]]; then
-                    echo "Usage: select all from <table_name>"
-                    continue
-                fi
-                tbl="$4"
-                select_all "$db_path/$tbl"
-                continue
-            fi
-
+	    # ===========================================
+	    # SELECT <column1>,<column2>,... FROM <tableName>
+	    # ===========================================
+	    if [[ "$sw1" == "select" && "$sw2" != "all" && "${3,,}" == "from" ]]; then
+	        if [[ -z "$4" ]]; then
+		    echo "Usage: select <column_names> from <table_name>"
+		    continue
+	        fi
+	    
+	        tbl="$4"           # Table name is the 4th argument
+	        columns="$2"       # Column names (comma-separated) are the 2nd argument
+	    
+	        # Validate table exists
+	        if [[ ! -f "$db_path/$tbl" ]]; then
+		    echo "Error: Table '$tbl' does not exist."
+		    continue
+	        fi
+	    
+	        # Remove commas and prepare for the column selection
+	        column_names="${columns//,/ }"
+	    
+	        # Call select_specific_columns with the full table path and column names
+	        select_specific_columns "$db_path/$tbl" "$column_names"
+	        continue
+	    fi
+	
             # ================= UNKNOWN COMMAND =================
             echo "Unknown command: $subline"
             echo "Supported commands inside '$dbname':"
