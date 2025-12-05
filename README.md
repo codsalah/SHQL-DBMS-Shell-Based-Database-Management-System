@@ -33,8 +33,8 @@ To run this project, ensure you have the following installed on your Linux syste
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/codsalah/Database-with-shell-scripting.git
-    cd Database-with-shell-scripting-
+    git clone https://github.com/codsalah/SHQL-DBMS-Shell-Based-Database-Management-System.git
+    cd SHQL-DBMS-Shell-Based-Database-Management-System
     ```
 
 2.  **Navigate to the DBMS directory:**
