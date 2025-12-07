@@ -70,9 +70,9 @@ The GUI features a modern design with:
 *   **Dashboard**: Central hub for all operations.
 *   **Interactive Dialogs**: Easy-to-use forms for creating databases, tables, and inserting data.
 *   **Visual Feedback**: Success/Error notifications and confirmation dialogs.
+*   
 
-
-<video controls src="GUI_demo.mp4" title="Title"></video>
+https://github.com/user-attachments/assets/eb6f260f-a8ea-4930-a03f-5adb77327810
 
 ---
 
