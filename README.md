@@ -61,6 +61,8 @@ Run the application in the standard command-line interface:
 ```
 This mode provides a text-based menu to navigate through database operations or enter the query interface.
 
+https://github.com/user-attachments/assets/6c8cd1c6-24e5-47e6-9107-e50b7b3aa6bf
+
 ### 2. GUI Mode
 Launch the graphical interface for a more visual experience:
 ```bash
